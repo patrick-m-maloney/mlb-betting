@@ -1,9 +1,16 @@
+# Virtual environments
+venv*/
+venv314/
 .env
+
+# Python cache
 __pycache__/
 *.pyc
-data/processed/
+*.pyo
+*.pyd
+
+# macOS
 .DS_Store
 
-venv314/
-venv/
-.env
+# Jupyter
+.ipynb_checkpoints/
