@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+data/processed/
+.DS_Store
+
+venv314/
+venv/
+.env
