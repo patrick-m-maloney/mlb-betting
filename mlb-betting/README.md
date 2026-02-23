@@ -1,4 +1,4 @@
-
+<!-- Activating virtual environment (from within mlb-betting): source ../venv314/bin/activate -->
 ## Data Pipeline (Daily)
 1. Morning: Fetch probable pitchers + projected lineups
 2. Continuous: Poll/WebSocket odds (minute-by-minute snapshots)
