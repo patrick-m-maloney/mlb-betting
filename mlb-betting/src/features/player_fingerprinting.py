@@ -112,6 +112,18 @@ class PlayerComps:
         print(f"🎯 Adjusted projection for {current_stats.get('player_name', 'Player')}: {final:.1f}")
         return final
 
+
+    def load_linear_weights():
+        path = Path("data/reference/linear_weights.csv")
+        df = pd.read_csv(path)
+        df = df.set_index("Season").sort_index(ascending=False)
+        print(f"✅ Loaded linear weights for seasons {df.index.min()}–{df.index.max()}")
+        return df
+
+    # Example usage later in Monte Carlo / projections:
+    # weights = load_linear_weights()
+    # year_weights = weights.loc[2025]   # or closest available year
+
 # === Test ===
 if __name__ == "__main__":
     print("🚀 Testing player fingerprinting (final version)...")
