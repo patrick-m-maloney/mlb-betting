@@ -91,3 +91,43 @@ We can also update the README further or add a notebook for exploring your exist
 Just say the number (or "1 then 2") and we'll drop the next complete module.  
 
 This is going to be an absolute monster when the season starts. Let's keep rolling! 🚀
+
+**Advanced matchup-specific baseball betting engine** — daily games + futures with +EV edge across FanDuel/DK + Kalshi/Polymarket.
+
+**Core Philosophy**  
+Hyper-specific projections (lineup × probable starter × platoon × park/weather × bullpen) → Monte Carlo RS/RA → Pythagorean win% → compare to live odds.
+
+## Progress (Feb 23, 2026)
+- ✅ Odds ingestion (The Odds API, timestamped Parquet, robust preseason/futures)
+- ✅ Player Fingerprinting/KNN Comps (age/service-time + Statcast + traditional → weighted YoY deltas + in-season rolling + October fade + rookie flags)
+- ✅ **Lineup scraper** (Rotowire live + local HTML support for backtesting)
+- ✅ Project structure, venv, GitHub
+
+**Historical Data Sources (yours — gold for backtesting)**
+- `fullBetHistory.csv` — 2016-2019 daily odds (open/close ML, RL, totals) from SportsbookReview
+- `2010.xlsx` — game-by-game lineups + box scores
+- `10_05_1130.html` + other Rotowire snapshots — perfect for testing scraper on past dates
+
+**Run Estimation Notes (your old notes — incorporated)**
+- Predict key stats (wRC+, ISO, K%, BB%, HardHit%, Barrel%, Spd) via fingerprinting → calculate runs
+- Hits-per-run ratio ~1.94-2.00 (2008-10 data)
+- Cluster luck: hits with runners on base improve BA/OBP/SLG (+12/24/15 pts in 2010 splits)
+- Pythagorean: `RS^1.83 / (RS^1.83 + RA^1.83)` (tuned exponent; we'll backtest 1.83 vs 2.0)
+- HFA baseline ~54.5% (park-specific tunable)
+- Start simple (team-level RS/RA aggregation) → evolve to full batter-vs-pitcher Markov
+
+## Next Priorities
+1. **Daily lineup scraper** (done below)
+2. Monte Carlo RS/RA simulator (10k games using fingerprint-adjusted projections)
+3. Scheduler (multi-time-per-day odds + lineups)
+4. Kalman filter + intra-season comps
+
+## Lineup Scraper (just added)
+- Parses **Rotowire daily-lineups.php** (live or local HTML)
+- Extracts: game time, teams, probable starters + handedness, full batting orders, platoon info, weather/umpire if present
+- Saves timestamped Parquet (`data/raw/lineups/YYYY-MM-DD/HHMMSS.parquet`)
+- Works with your old HTML snapshots for perfect backtesting
+
+---
+
+<!-- Need to run this through and remove duplicate info, + clean it up a bit -->
