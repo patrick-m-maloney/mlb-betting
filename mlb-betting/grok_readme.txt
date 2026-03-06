@@ -120,3 +120,34 @@ All files are Parquet unless noted. Granularity, fields, and types below.
    - Columns (varies by file): player_id, game_date, year, AB, H, HR, RBI, BB, SO, AVG, OBP, SLG, wOBA, events, hit_distance_sc, launch_angle, launch_speed, etc.
 
 ================================================================================
+
+Personal Project Notes and Future Improvements (basically want a running list of project goals and direction)
+This section compiles suggestions, future improvements, and notes from conversations related to the MLB betting/baseball data project (repo: mlb-betting under umbrella sports-trading). These are drawn from user inputs across chats to maintain an ongoing model of project goals, enhancements, and tasks. Organized chronologically by conversation timestamp for traceability, with details on what was suggested and why.
+From February 24, 2026 Conversation (Folder Structure and Setup)
+
+Rename local folder for consistency with GitHub repo: Change the local sports_trading folder name to mlb-betting (or align closely) to match the GitHub repo name. This improves clarity and avoids confusion when pushing/pulling code. Consider standardizing to lowercase sports-trading for professionalism if keeping as parent.
+Umbrella structure for multi-sport expansion: Use SPORTS_TRADING (or renamed sports-trading) as a top-level folder containing sub-projects like mlb-betting. Plan to add sibling folders for NFL, NBA, etc., to support future betting models across sports. This allows shared resources (e.g., virtual environments) while keeping sport-specific code isolated.
+File organization within repo: Move project-specific files like .env, .gitignore, README.md, and requirements.txt (reqs) into the mlb-betting subfolder. Keep shared items like the virtual environment (venv314) in the parent folder for reuse across sports projects.
+Fix Python versioning in virtual environment: Resolve issues where scripts fail to run with python file_name.py due to version mismatches. Recreate the venv with the correct Python version (e.g., via symlinks like ln -s /usr/local/bin/python3.14 /usr/local/bin/python) to ensure consistent execution across the project.
+
+From March 3, 2026 Conversation (Project Tracking and Access)
+
+Document GitHub repo details: Always include the exact repo URL (e.g., github.com/HissingWings/mlb-betting) in discussions for quick reference. Add a project recap section to the README to summarize current state, avoiding reliance on chat history.
+Improve project continuity across sessions: Since chats are isolated, create a "living log" file (e.g., project_log.md in the repo) to track progress, summaries, and timelines. This can be pasted into new chats or used as a central reference.
+Explore repo visibility and sharing: If the repo is private, consider making it public or sharing access tokens for collaborative reviews. Include status checks in the log, like last commit date and open issues.
+
+From March 6, 2026 Conversation (Data Fetching and Weighting)
+
+Enhance data weighting procedures: Add all linear weights (e.g., from FanGraphs Guts table for 2021–2025) to a central file (e.g., append to pelota.csv). Apply the same weighting methodology used for other elements to in-season weight estimates for consistency in betting models.
+Improve schedule fetcher resilience: Modify the schedule fetcher script to save data for each year (or month for older data) individually as soon as it's fetched. This prevents total data loss if errors occur mid-process (e.g., during long runs for historical seasons). Implement month-by-month fetching for pre-modern eras to handle API limits better.
+Maintain chat/project continuity: For ongoing development, prefer continuing in the same chat thread when possible. If starting new, include a pasted summary of progress/timeline to avoid re-explaining. Add this as a best practice to the README.
+Create a project timeline and status overview: Regularly update a dedicated section in the README with a timeline of evolution (e.g., initial setup, data fetching additions, weighting integrations) and current status (e.g., completed scripts, pending expansions). Include next steps like testing historical data pulls.
+
+From Current Conversation (March 6, 2026) (Player Logs Fetching)
+
+Update file saving structure for game logs: Change the output paths in player_logs_fetcher.py to save files flatly in data/raw/player_logs/season_totals (e.g., batting_game_logs_YYYY.parquet, pitching_game_logs_YYYY.parquet) instead of per-year subfolders. This simplifies access and organization for analysis.
+Expand historical data fetching: Currently set to 2000–2014; plan to adjust start_year to 1980 or earlier when data reliability is confirmed (e.g., full game logs are available and consistent). Start with 2015+ (Statcast era) for modern analysis, then backfill.
+Handle platoon splits separately: Keep platoon splits (vs_LHP/RHP) in a dedicated folder like season_splits with flattened filenames (e.g., batting_season_vs_LHP_YYYY.parquet). Consider options to flatten them further, remove if not needed for betting models, or integrate into main logs.
+Add error handling and retries: Incorporate retry logic (e.g., up to 3 attempts per year with sleeps) for failed fetches due to API issues. This builds on the schedule fetcher improvements for robustness.
+
+These notes form an actionable backlog. Prioritize based on immediate needs (e.g., data fetching stability), and update this list as new suggestions arise. Track completion in the README with checkboxes or a Kanban-style table for visibility.
