@@ -1,3 +1,11 @@
+# src/data_ingestion/lineups.py
+"""
+Updated Rotowire Lineups Scraper — Step 5 (final clean version)
+• PlayerMatcher integration
+• Bronze audit + Silver append-only partitioned Parquet
+• DuckDB view with absolute path (works from notebooks too)
+"""
+
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
@@ -7,9 +15,16 @@ import pandas as pd
 from bs4 import BeautifulSoup
 from datetime import datetime
 import re
+import duckdb
 
-RAW_LINEUPS_PATH = Path("data/raw/lineups")
-RAW_LINEUPS_PATH.mkdir(parents=True, exist_ok=True)
+from config.settings import BRONZE_DIR, SILVER_DIR, DB_PATH
+from src.data_ingestion.player_id_matching import PlayerMatcher
+
+# Paths
+BRONZE_LINEUPS_DIR = BRONZE_DIR / "lineups"
+SILVER_LINEUPS_DIR = SILVER_DIR / "lineups"
+BRONZE_LINEUPS_DIR.mkdir(parents=True, exist_ok=True)
+SILVER_LINEUPS_DIR.mkdir(parents=True, exist_ok=True)
 
 def fetch_lineups(live=True, test_html=None) -> pd.DataFrame | None:
     fetch_timestamp = datetime.utcnow()
@@ -20,9 +35,7 @@ def fetch_lineups(live=True, test_html=None) -> pd.DataFrame | None:
         print(f"✅ Parsing local test HTML: {test_html}")
     else:
         url = "https://www.rotowire.com/baseball/daily-lineups.php"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-        }
+        headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
         resp = requests.get(url, headers=headers, timeout=20)
         if resp.status_code != 200:
             print(f"❌ HTTP {resp.status_code} from Rotowire")
@@ -30,13 +43,15 @@ def fetch_lineups(live=True, test_html=None) -> pd.DataFrame | None:
         html = resp.text
         print("✅ Fetched live Rotowire daily lineups")
 
-    return parse_rotowire(html, fetch_timestamp)
+    df = parse_rotowire(html, fetch_timestamp)
+    if not df.empty:
+        df = add_bbref_matching(df)
+    return df
 
 def parse_float(text):
     if not text or text.strip() in ["–", "-", ""]:
         return None
     try:
-        # Extract number like "11.5" from "11.5 Runs"
         num = re.search(r'[-+]?\d*\.?\d+', text.strip())
         return float(num.group(0)) if num else None
     except:
@@ -59,18 +74,15 @@ def parse_rotowire(html: str, fetch_timestamp: datetime) -> pd.DataFrame:
             if any(skip in classes for skip in ["is-tools", "hide-until", "gdc"]):
                 continue
 
-            # Game time
             time_div = div.find("div", class_="lineup__time")
             game_time = time_div.get_text(strip=True) if time_div else None
 
-            # Teams
             abbrs = div.find_all("div", class_="lineup__abbr")
-            if len(abbrs) < 2:
-                continue
+            if len(abbrs) < 2: continue
             away_team = abbrs[0].get_text(strip=True)
             home_team = abbrs[1].get_text(strip=True)
 
-            # Starters (name + hand)
+            # Starters
             away_starter_name = away_starter_hand = home_starter_name = home_starter_hand = None
             for lst in div.find_all("ul", class_="lineup__list"):
                 highlight = lst.find("li", class_="lineup__player-highlight")
@@ -84,7 +96,7 @@ def parse_rotowire(html: str, fetch_timestamp: datetime) -> pd.DataFrame:
                     else:
                         home_starter_name, home_starter_hand = name, hand
 
-            # Lineups as ordered lists
+            # Lineups
             away_lineup = away_lineup_pos = away_lineup_bats = []
             home_lineup = home_lineup_pos = home_lineup_bats = []
             for lst in div.find_all("ul", class_="lineup__list"):
@@ -103,21 +115,17 @@ def parse_rotowire(html: str, fetch_timestamp: datetime) -> pd.DataFrame:
                 else:
                     home_lineup, home_lineup_pos, home_lineup_bats = names[:9], poss[:9], bats[:9]
 
-            # Status → boolean
             status_li = div.find("li", class_="lineup__status")
             is_confirmed = bool(status_li and "Confirmed" in status_li.get_text(strip=True))
 
-            # Weather
             weather = div.find("div", class_="lineup__weather-text")
             weather_text = weather.get_text(strip=True) if weather else None
 
-            # Umpire
             umpire_div = div.find("div", class_="lineup__umpire")
             umpire = umpire_div.get_text(strip=True).replace("Umpire:", "").strip() if umpire_div else None
             if umpire and "Not announced yet" in umpire:
                 umpire = None
 
-            # === ALL ODDS (LINE + O/U) as dicts ===
             odds_line = {"composite": None, "fanduel": None, "draftkings": None, "betmgm": None, "pointsbet": None}
             odds_ou = {"composite": None, "fanduel": None, "draftkings": None, "betmgm": None, "pointsbet": None}
 
@@ -127,7 +135,7 @@ def parse_rotowire(html: str, fetch_timestamp: datetime) -> pd.DataFrame:
                     text = item.get_text(strip=True)
                     spans = item.find_all("span")
                     for span in spans:
-                        book = span.get("class", [""])[0]  # composite, fanduel, etc.
+                        book = span.get("class", [""])[0]
                         val = span.get_text(strip=True)
                         if book in odds_line:
                             if "LINE" in text:
@@ -137,6 +145,7 @@ def parse_rotowire(html: str, fetch_timestamp: datetime) -> pd.DataFrame:
 
             games.append({
                 "fetch_timestamp": fetch_timestamp,
+                "game_date": fetch_timestamp.date(),
                 "game_time": game_time,
                 "away_team": away_team,
                 "home_team": home_team,
@@ -153,43 +162,85 @@ def parse_rotowire(html: str, fetch_timestamp: datetime) -> pd.DataFrame:
                 "is_confirmed": is_confirmed,
                 "weather": weather_text,
                 "umpire": umpire,
-                "odds_line": odds_line,      # dict with all books
-                "odds_ou": odds_ou,          # dict with all books
+                "odds_line": odds_line,
+                "odds_ou": odds_ou,
             })
         except Exception:
             continue
 
     df = pd.DataFrame(games)
-    print(f"✅ Parsed {len(df)} games — all books now in odds_line / odds_ou dicts")
+    print(f"✅ Parsed {len(df)} games")
     return df
 
-def parse_float(text):
-    if not text or text.strip() in ["–", "-", ""]:
-        return None
-    try:
-        num = re.search(r'[-+]?\d*\.?\d+', text.strip())
-        return float(num.group(0)) if num else None
-    except:
-        return None
+def add_bbref_matching(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    matcher = PlayerMatcher()
+    df = df.copy()
+
+    df["away_starter_primary_bbref_id"] = df.apply(
+        lambda r: matcher.match_player(r["away_starter_name"], r["away_team"], "P")["primary_bbref_id"] 
+        if pd.notna(r["away_starter_name"]) else None, axis=1)
+    df["home_starter_primary_bbref_id"] = df.apply(
+        lambda r: matcher.match_player(r["home_starter_name"], r["home_team"], "P")["primary_bbref_id"] 
+        if pd.notna(r["home_starter_name"]) else None, axis=1)
+
+    def match_list(names, poss, team):
+        return [matcher.match_player(n, team_abbr=team, position=p)["primary_bbref_id"] 
+                if pd.notna(n) else None for n, p in zip(names, poss)]
+
+    df["away_lineup_bbref_ids"] = df.apply(
+        lambda r: match_list(r["away_lineup"], r["away_lineup_pos"], r["away_team"]), axis=1)
+    df["home_lineup_bbref_ids"] = df.apply(
+        lambda r: match_list(r["home_lineup"], r["home_lineup_pos"], r["home_team"]), axis=1)
+
+    print(f"✅ Matched BBRef IDs for {len(df) * 20} players")
+    return df
 
 def save_lineups(df: pd.DataFrame):
     if df.empty:
         return
+
+    # Bronze audit
     date_str = df["fetch_timestamp"].iloc[0].strftime("%Y-%m-%d")
     time_str = df["fetch_timestamp"].iloc[0].strftime("%H%M%S")
-    path = RAW_LINEUPS_PATH / date_str
-    path.mkdir(parents=True, exist_ok=True)
-    filename = path / f"lineups_{time_str}.parquet"
-    df.to_parquet(filename, compression="snappy")
-    print(f"✅ Saved → {filename}")
+    bronze_path = BRONZE_LINEUPS_DIR / date_str
+    bronze_path.mkdir(parents=True, exist_ok=True)
+    bronze_file = bronze_path / f"lineups_{time_str}.parquet"
+    df.to_parquet(bronze_file, compression="snappy")
+    print(f"✅ Saved bronze audit → {bronze_file}")
+
+    # Silver append-only
+    for date, group in df.groupby("game_date"):
+        partition_dir = SILVER_LINEUPS_DIR / f"year={date.year}" / f"month={date.month:02d}" / f"day={date.day:02d}"
+        partition_dir.mkdir(parents=True, exist_ok=True)
+        file_path = partition_dir / "lineups.parquet"
+
+        if file_path.exists():
+            existing = pd.read_parquet(file_path)
+            combined = pd.concat([existing, group], ignore_index=True)
+            combined = combined.drop_duplicates(subset=["game_date", "away_team", "home_team", "fetch_timestamp"], keep="last")
+        else:
+            combined = group
+
+        combined.to_parquet(file_path, compression="zstd", index=False)
+        print(f"✅ Silver partition saved → {file_path} ({len(combined)} games)")
+
+    # DuckDB view — absolute path + context manager (never locks)
+    with duckdb.connect(str(DB_PATH)) as con:
+        abs_pattern = str(SILVER_LINEUPS_DIR / "year=*/month=*/day=*/lineups.parquet")
+        con.execute(f"""
+            CREATE OR REPLACE VIEW silver_lineups AS 
+            SELECT * FROM read_parquet('{abs_pattern}', union_by_name=True)
+        """)
+        print(f"✅ DuckDB view 'silver_lineups' updated (absolute path: {abs_pattern})")
 
 if __name__ == "__main__":
     print("🚀 Fetching live Rotowire daily lineups...")
     df = fetch_lineups(live=True)
     if df is not None and not df.empty:
         save_lineups(df)
-        print("\nSample first game:")
+        print("\nSample with new bbref columns:")
         sample = df.iloc[0]
-        print(sample[["game_time", "away_team", "home_team", "away_starter_name", "away_starter_hand", "is_confirmed"]])
-        print("odds_ou dict:", sample["odds_ou"])
-        print("away_lineup_bats:", sample["away_lineup_bats"])
+        print(sample[["game_date", "away_team", "away_starter_name", "away_starter_primary_bbref_id"]])
+        print("Away lineup bbref_ids:", sample["away_lineup_bbref_ids"])

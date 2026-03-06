@@ -14,3 +14,15 @@ __pycache__/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Data lake - never commit raw or processed data
+data/bronze/*
+data/silver/*
+data/gold/*
+data/db/*
+!data/reference/*
+
+# Large files
+*.parquet
+*.duckdb
+*.db

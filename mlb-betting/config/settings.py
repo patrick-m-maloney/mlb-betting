@@ -17,5 +17,34 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 RAW_ODDS_PATH = BASE_DIR / "data" / "raw" / "odds"
 PROCESSED_PATH = BASE_DIR / "data" / "processed"
 
+# new
+# BASE_DIR = Path(__file__).parent.parent
+DATA_DIR = BASE_DIR / "data"
+SRC_DIR = BASE_DIR / "src"
+
+# Data lake paths (bronze/silver/gold)
+BRONZE_DIR = DATA_DIR / "bronze"
+SILVER_DIR = DATA_DIR / "silver"
+GOLD_DIR = DATA_DIR / "gold"
+RAW_DIR = DATA_DIR / "raw"          # legacy, keep for now
+REFERENCE_DIR = DATA_DIR / "reference"
+DB_PATH = DATA_DIR / "db" / "mlb_betting.duckdb"
+
+# Create directories if missing
+for d in [BRONZE_DIR, SILVER_DIR, GOLD_DIR, RAW_DIR, REFERENCE_DIR, DB_PATH.parent]:
+    d.mkdir(parents=True, exist_ok=True)
+
 RAW_ODDS_PATH.mkdir(parents=True, exist_ok=True)
 PROCESSED_PATH.mkdir(parents=True, exist_ok=True)
+
+# Reference files
+PLAYER_ID_MAP_PATH = REFERENCE_DIR / "player_id_map.parquet"
+LINEAR_WEIGHTS_PATH = REFERENCE_DIR / "linear_weights.csv"
+
+# Scraping / API settings
+ROT_WIRE_DELAY = 2.0          # seconds between requests
+THE_RUNDOWN_API_KEY = os.getenv("THE_RUNDOWN_API_KEY")
+
+# Matching thresholds
+MATCH_CONFIDENCE_THRESHOLD = 85
+FUZZY_THRESHOLD = 90
