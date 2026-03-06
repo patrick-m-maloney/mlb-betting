@@ -1,7 +1,8 @@
 ================================================================================
 GROK README - MLB Betting Algorithm System
 Living Project Log
-Last updated: March 06, 2026 01:30 PM EST
+GitHub Repo: https://github.com/patrick-m-maloney/mlb-betting
+Last updated: March 06, 2026 02:15 PM EST
 ================================================================================
 
 Project Goal
@@ -39,21 +40,25 @@ March 04, 2026 – Monte Carlo Simulator v1.0 completed (aggregate team-level RS
               using lineup lists + linear weights + placeholder projections). 
               Wired for future fingerprinting calls.
 
-March 06, 2026 – Player game-by-game logs + platoon splits fetcher added.
-              Data foundation strengthened for fine-grained modeling.
+March 06, 2026 – Player game-by-game logs fetcher added (Statcast 2015+ + season fallback). 
+              Folder reorg: season_totals/ for aggregates, game_by_game/ for per-game files 
+              (flat, one file per year: batting_game_logs_YYYY.parquet, etc.).
 
 Current Status (March 06, 2026)
 -------------------------------
-Data Pipeline: COMPLETE & PRODUCTION-READY
+Data Pipeline: STRONG FOUNDATION – GAME-BY-GAME DATA FLOWING
 - Odds fetcher (timestamped, multi-book)
 - Lineup scraper (structured, lists + per-book odds)
 - Player fingerprinting (KNN + dynamic updates)
 - Full historical schedules (2000–2026)
 - Linear weights reference (1871–2025)
-- Game-by-game player logs + platoon splits (2015+ full; earlier seasons season-level splits)
+- Game-by-game player logs (2015+ via Statcast + season totals fallback)
+- Season aggregates safely separated in season_totals/
 
-Next Immediate Priority: 
-- Upgrade Monte Carlo to full batter-vs-pitcher event simulation
+Next Immediate Priorities:
+- Post-process game logs → compute platoon averages (vs LHP/RHP) per player/year
+- Hook platoon splits into lineup scraper (batter bats vs starter hand)
+- Upgrade Monte Carlo to use real projected wOBA/FIP per player + linear weights
 - Add park factors, bullpen usage, and in-season run environment weighting
 
 Data Structures – Detailed Storage & Schemas
@@ -100,12 +105,18 @@ All files are Parquet unless noted. Granularity, fields, and types below.
    - Columns: Season (index), wOBA, wOBAScale, wBB, wHBP, w1B, w2B, w3B, wHR, runSB, runCS, R/PA, R/W, cFIP
    - All numeric (float64)
 
-5. Player Game Logs (data/raw/player_logs/YYYY/batting_logs.parquet & pitching_logs.parquet)
-   - Granularity: Per player per game (2015+ full; earlier years season-level splits)
-   - Columns: player_id, game_date, year, G, AB, R, H, 2B, 3B, HR, RBI, BB, SO, AVG, OBP, SLG, wOBA, etc. (full FanGraphs columns)
+5. Player Season Totals (data/raw/player_logs/season_totals/)
+   - Granularity: Per player per season
+   - Files: batting_season_totals_YYYY.parquet, pitching_season_totals_YYYY.parquet
+   - Columns: player_id, year, G, AB, R, H, 2B, 3B, HR, RBI, BB, SO, AVG, OBP, SLG, wOBA, etc. (full FanGraphs columns)
 
-6. Platoon Splits (data/raw/player_logs/YYYY/batting_splits_vs_LHP.parquet etc.)
-   - Granularity: Per player per season per split (vs LHP/RHP)
-   - Columns: player_id, year, split, PA, wOBA, ISO, K%, BB%, etc.
+6. Player Game-by-Game Logs (data/raw/player_logs/game_by_game/)
+   - Granularity: Per player per game (2015+ via Statcast; earlier years season-level fallback)
+   - Files (one per year): 
+     - batting_game_logs_YYYY.parquet
+     - pitching_game_logs_YYYY.parquet
+     - statcast_pitch_level_YYYY.parquet (2015+ only, pitch-level detail)
+     - statcast_game_summary_YYYY.parquet (aggregated per player/game)
+   - Columns (varies by file): player_id, game_date, year, AB, H, HR, RBI, BB, SO, AVG, OBP, SLG, wOBA, events, hit_distance_sc, launch_angle, launch_speed, etc.
 
 ================================================================================
