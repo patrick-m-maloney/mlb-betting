@@ -26,3 +26,6 @@ data/db/*
 *.parquet
 *.duckdb
 *.db
+# Allow everything in reference folder (overrides the *.parquet rule)
+!data/reference/
+!data/reference/**
