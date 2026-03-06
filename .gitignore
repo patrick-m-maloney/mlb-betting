@@ -15,5 +15,17 @@ __pycache__/
 # Jupyter
 .ipynb_checkpoints/
 
-# Misc
-prompt_drafts.txt
+# Data lake - never commit raw or processed data
+data/bronze/*
+data/silver/*
+data/gold/*
+data/db/*
+!data/reference/*
+
+# Large files
+*.parquet
+*.duckdb
+*.db
+# Allow everything in reference folder (overrides the *.parquet rule)
+!data/reference/
+!data/reference/**

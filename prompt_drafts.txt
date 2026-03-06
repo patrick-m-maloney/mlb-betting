@@ -1,0 +1,24 @@
+Other odds sites:
+    - Opticodds
+    - Odds jam
+
+Other Betting Sites
+    - Novig
+    - Betfair
+
+# after finishing current round of prompts/fixes, I want to manually go to each site/download a sample of data so taht I can determine exactly how I want the data stored
+
+
+So I have a couple of questions.  I'll ask them one at a time, and we'll move on after that.
+Currently, all we are doing is calculating the predicting runs scored for each team over the course of a game, correct?
+So the monte carlo sim runs x number of times, and the average results are that team A scores 3 runs, team B scores 4 runs (so team A has 4 runs allowed)
+So Team A over the course of this 'season' of x games gets a total runs scored of 3x and runs allowed 4x
+Then according to the pythagorean theorem of baseball this would translate to a certain number of wins/winning %
+We get the same for team B
+then we just use a simple calculation of the odds that a team with winning % W beats a team w winning % (100-W), chance they lose, tie, etc
+
+
+when we switch to batter vs pitcher simulation, how do we do this?
+    - i assume we have stats for pitchers such as # pitches thrown a game, etc
+    - can we map effectiveness over # of pitches? (so pitchers would have almost 3 levels of performance modelling: course of career, course of season, and course of the game)
+As for next steps, I want to really focus on improving the player performance model before going into 
