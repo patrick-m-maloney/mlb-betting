@@ -39,7 +39,7 @@ Your description is **spot-on and extremely sharp**. No incorrect assumptions. H
 - Each new game/day = observation.
 - Kalman filter blends prior model + new data (with increasing confidence as sample size grows).
 - After ~30–60 games (tunable via backtest), start **intra-season comps**:
-  - Look at players with similar **rolling 30-day** profile (not just age/service).
+ **rolling 30-day** profile (not just age/service).
   - Compute new modifier matrix from their remaining-season performance in prior years.
 - Blending: `final_projection = w_preseason * preseason_model + w_inseason * inseason_comps + w_kalman * kalman_estimate`
   - Weights shift linearly or exponentially toward in-season as games played increase (backtest the exact curve).
