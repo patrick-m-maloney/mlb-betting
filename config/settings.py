@@ -16,7 +16,7 @@ SPORT = "baseball_mlb"
 BASE_DIR = Path(__file__).resolve().parent.parent
 RAW_ODDS_PATH = BASE_DIR / "data" / "raw" / "odds"
 PROCESSED_PATH = BASE_DIR / "data" / "processed"
-
+print(BASE_DIR)
 # new
 # BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / "data"
