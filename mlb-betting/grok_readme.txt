@@ -77,3 +77,13 @@ All Parquet files use these exact column names and types:
 Next Module: Monte Carlo Simulator (written below)
 
 ================================================================================
+
+March 04, 2026 10:10 AM EST – Monte Carlo Simulator v1.0 completed
+--------------------------------------------------------------
+- Full MonteCarloSimulator class in src/models/monte_carlo.py
+- Uses real lineup lists + fingerprinting + linear weights
+- 10,000 simulations per game
+- Outputs expected RS/RA, win%, edge vs every book
+- Built-in Kelly sizing stub
+- Data structures fully respected (lists, dicts, nullable types)
+Next: v2 with full batter-vs-pitcher event simulation + park factors + bullpen usage model
