@@ -61,7 +61,7 @@ def fetch_schedules(start_year=2000, end_year=None):
                 df[col] = pd.to_numeric(df[col], errors='coerce').astype('Int64')
             
             # Save this year immediately
-            path = RAW_SCHEDULE_PATH / str(year)
+            path = RAW_SCHEDULE_PATH
             path.mkdir(parents=True, exist_ok=True)
             filename = path / f"games_{year}.parquet"
             df.to_parquet(filename, compression="snappy")
@@ -70,4 +70,4 @@ def fetch_schedules(start_year=2000, end_year=None):
     print("✅ All schedules fetched and saved per-year!")
 
 if __name__ == "__main__":
-    fetch_schedules(start_year=2000)
+    fetch_schedules(start_year=2025)

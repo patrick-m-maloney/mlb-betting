@@ -44,6 +44,26 @@ March 06, 2026 – Player game-by-game logs fetcher added (Statcast 2015+ + seas
               Folder reorg: season_totals/ for aggregates, game_by_game/ for per-game files 
               (flat, one file per year: batting_game_logs_YYYY.parquet, etc.).
 
+March 06, 2026 – player_logs_fetcher.py upgraded to daily Baseball-Reference loop
+              - Uses batting_stats_range / pitching_stats_range per game day
+              - Full Lahman enrichment (Lg, full_team_name, key_mlbam)
+              - Automatically skips Spring Training (game_type == 'S')
+              - Flat schedule path + robust retries
+              → Now stable and ready for lineup scraper + Monte Carlo
+
+March 07, 2026 – player_logs_fetcher.py hardened for historical backfill
+              - Increased sleep (4.2–7.8s random) + exponential backoff
+              - Now logs failed dates
+              - Recommendation: run ONE YEAR at a time with short breaks
+              → Survived 2020–2021 cleanly; ready for 2022–2024
+
+March 07, 2026 – player_logs_fetcher.py now fully resumable + checkpointed
+              - Saves every 10 days + on interrupt
+              - Auto-resumes from existing parquet
+              - Failed dates logged separately
+              - Recommended: run with `caffeinate` for long backfills
+              → Safe for 2020–2024 historical data (2022 already complete)
+
 Current Status (March 06, 2026)
 -------------------------------
 Data Pipeline: STRONG FOUNDATION – GAME-BY-GAME DATA FLOWING
@@ -64,6 +84,12 @@ Next Immediate Priorities:
 Data Structures – Detailed Storage & Schemas
 --------------------------------------------
 All files are Parquet unless noted. Granularity, fields, and types below.
+
+Yearly Lahman Redownload (after each season):
+1. Go to https://sabr.app.box.com/s/y1prhc795jk8zvmelfd3jq7tl389y6cd
+2. Download fresh CSVs + readme
+3. Convert to parquet (keep exact same filenames)
+4. Overwrite everything in data/reference/lahman_files/
 
 1. Lineups (data/raw/lineups/YYYY-MM-DD/lineups_HHMMSS.parquet)
    - Granularity: Per scrape (multiple per day possible)

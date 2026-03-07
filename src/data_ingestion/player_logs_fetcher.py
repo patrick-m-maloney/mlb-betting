@@ -1,132 +1,129 @@
 import os
 import pandas as pd
-from pybaseball import statcast
+import pybaseball as pb
 import time
+import random
+from tqdm import tqdm
+from datetime import date
 
 # ====================== LAHMAN REFERENCE ======================
 LAHMAN_DIR = "data/reference/lahman_files"
-teams_df = pd.read_parquet(f"{LAHMAN_DIR}/historical_teams_data.parquet")
-people_df = pd.read_parquet(f"{LAHMAN_DIR}/people.parquet")
+teams_df    = pd.read_parquet(f"{LAHMAN_DIR}/historical_teams_data.parquet")
+people_df   = pd.read_parquet(f"{LAHMAN_DIR}/people.parquet")
 
 def get_team_info(year: int, tm: str):
-    """Year-aware lookup for Lg + full team name (with fallback)"""
     match = teams_df[(teams_df['yearID'] == year) & (teams_df['teamID'] == tm)]
     if not match.empty:
         row = match.iloc[0]
         return row['lgID'], row['name']
-    
-    # Fallback to most recent year for this franchise
     fallback = teams_df[teams_df['teamID'] == tm].sort_values('yearID', ascending=False)
     if not fallback.empty:
         row = fallback.iloc[0]
-        print(f"  → Using {row['yearID']} team data for {tm} in {year}")
         return row['lgID'], row['name']
     return pd.NA, f"Unknown ({tm})"
 
-# ====================== MAIN FETCHER ======================
-def fetch_game_logs(year: int = 2025):
-    # Load schedule to get exact game dates
-    schedule_path = f"data/raw/schedules/{year}/games_{year}.parquet"
+# ====================== MAIN FETCHER (RESUMABLE) ======================
+def fetch_game_logs(year: int = 2023):
+    print(f"📥 Starting / resuming daily BR logs fetch for {year}...")
+
+    schedule_path = f"data/raw/schedules/games_{year}.parquet"
     schedule = pd.read_parquet(schedule_path)
-    start_date = schedule['game_date'].min().strftime('%Y-%m-%d')
-    end_date   = schedule['game_date'].max().strftime('%Y-%m-%d')
-    print(f"📥 Fetching Statcast game-by-game logs for {year} ({start_date} → {end_date})...")
+    schedule['game_date'] = pd.to_datetime(schedule['game_date'])
 
-    # Fetch with retries
-    df = None
-    for attempt in range(1, 4):
-        try:
-            df = statcast(start_dt=start_date, end_dt=end_date)
-            break
-        except Exception as e:
-            print(f"⚠️ Attempt {attempt} failed: {e}")
-            time.sleep(6)
-    if df is None or df.empty:
-        print("❌ No Statcast data returned.")
-        return
+    if 'game_type' in schedule.columns:
+        regular = schedule[schedule['game_type'] == 'R'].copy()
+    else:
+        regular = schedule[schedule['game_date'] >= f'{year}-03-20'].copy()
 
-    # Save raw pitch-level
-    raw_dir = "data/raw/player_logs/game_by_game"
-    os.makedirs(raw_dir, exist_ok=True)
-    df.to_parquet(f"{raw_dir}/statcast_pitch_level_{year}.parquet")
-    print(f"✅ Raw pitch-level saved ({len(df):,} pitches)")
+    all_dates = sorted(regular['game_date'].dt.date.unique())
+    print(f"   → {len(all_dates)} regular-season days total")
 
-    # Team assignment
-    df['batter_team'] = df.apply(lambda r: r['away_team'] if r['inning_topbot'] == 'top' else r['home_team'], axis=1)
-    df['pitcher_team'] = df.apply(lambda r: r['home_team'] if r['inning_topbot'] == 'top' else r['away_team'], axis=1)
+    out_dir = "data/raw/player_logs/game_by_game"
+    os.makedirs(out_dir, exist_ok=True)
+    batting_path = f"{out_dir}/batting_game_logs_{year}.parquet"
+    pitching_path = f"{out_dir}/pitching_game_logs_{year}.parquet"
+    failed_path = f"{out_dir}/failed_dates_{year}.txt"
 
-    outcomes = df[df['events'].notna()].copy()
+    # === RESUME LOGIC ===
+    processed_dates = set()
+    batting_dfs = []
+    pitching_dfs = []
 
-    # ==================== BATTING LOGS ====================
-    batting_logs = outcomes.groupby(['game_date', 'game_pk', 'game_year', 'batter', 'batter_team']).agg(
-        player_name=('player_name', 'first'),
-        PA=('events', 'count'),
-        BB=('events', lambda x: (x == 'walk').sum()),
-        IBB=('events', lambda x: (x == 'intent_walk').sum()),
-        HBP=('events', lambda x: (x == 'hit_by_pitch').sum()),
-        SO=('events', lambda x: (x == 'strikeout').sum()),
-        SF=('events', lambda x: (x == 'sac_fly').sum()),
-        SH=('events', lambda x: (x == 'sac_bunt').sum()),
-        single=('events', lambda x: (x == 'single').sum()),
-        double=('events', lambda x: (x == 'double').sum()),
-        triple=('events', lambda x: (x == 'triple').sum()),
-        HR=('events', lambda x: (x == 'home_run').sum()),
-        RBI=('rbi', 'sum')
-    ).reset_index()
+    if os.path.exists(batting_path):
+        print("   → Existing file found — resuming...")
+        existing = pd.read_parquet(batting_path)
+        if 'game_date' in existing.columns:
+            processed_dates = set(existing['game_date'].dt.date.unique())
+            batting_dfs.append(existing)
+            print(f"      Already processed: {len(processed_dates)} days")
 
-    batting_logs = batting_logs.rename(columns={'batter': 'player_id', 'batter_team': 'Tm'})
-    batting_logs['AB'] = batting_logs['PA'] - batting_logs['BB'] - batting_logs['IBB'] - batting_logs['HBP'] - batting_logs['SF'] - batting_logs['SH']
-    batting_logs['H'] = batting_logs['single'] + batting_logs['double'] + batting_logs['triple'] + batting_logs['HR']
-    batting_logs['2B'] = batting_logs['double']
-    batting_logs['3B'] = batting_logs['triple']
+    remaining_dates = [d for d in all_dates if d not in processed_dates]
+    print(f"   → {len(remaining_dates)} days still needed\n")
 
-    # Add Lg + full_team_name from Lahman
-    batting_logs[['Lg', 'full_team_name']] = batting_logs.apply(
-        lambda row: pd.Series(get_team_info(int(row['game_year']), row['Tm'])), axis=1
-    )
+    failed_dates = []
 
-    batting_logs.to_parquet(f"{raw_dir}/batting_game_logs_{year}.parquet")
-    print(f"✅ Batting game logs saved: {batting_logs.shape}")
+    try:
+        for i, game_date in enumerate(tqdm(remaining_dates, desc="Fetching")):
+            date_str = game_date.strftime('%Y-%m-%d')
 
-    # ==================== PITCHING LOGS ====================
-    out_events = ['field_out','strikeout','force_out','grounded_into_double_play','fielders_choice',
-                  'fielders_choice_out','sac_fly','sac_bunt','double_play','triple_play']
+            success = False
+            for attempt in range(6):
+                try:
+                    bat = pb.batting_stats_range(date_str, date_str)
+                    pit = pb.pitching_stats_range(date_str, date_str)
+                    time.sleep(random.uniform(4.5, 8.5))
+                    success = True
+                    break
+                except Exception as e:
+                    wait = 12 * (2 ** attempt)
+                    time.sleep(wait)
 
-    pitching_logs = outcomes.groupby(['game_date', 'game_pk', 'game_year', 'pitcher', 'pitcher_team']).agg(
-        PA=('events', 'count'),
-        BB=('events', lambda x: (x == 'walk').sum()),
-        IBB=('events', lambda x: (x == 'intent_walk').sum()),
-        HBP=('events', lambda x: (x == 'hit_by_pitch').sum()),
-        SO=('events', lambda x: (x == 'strikeout').sum()),
-        single=('events', lambda x: (x == 'single').sum()),
-        double=('events', lambda x: (x == 'double').sum()),
-        triple=('events', lambda x: (x == 'triple').sum()),
-        HR=('events', lambda x: (x == 'home_run').sum()),
-        outs=('events', lambda x: sum(1 for e in x if e in out_events)),
-        R=('delta_home_score', 'sum')
-    ).reset_index()
+            if not success:
+                print(f"   ❌ Failed {date_str}")
+                failed_dates.append(date_str)
+                time.sleep(25)
+                continue
 
-    pitching_logs = pitching_logs.rename(columns={'pitcher': 'player_id', 'pitcher_team': 'Tm'})
-    pitching_logs['IP'] = pitching_logs['outs'] / 3.0
-    pitching_logs['H'] = pitching_logs['single'] + pitching_logs['double'] + pitching_logs['triple'] + pitching_logs['HR']
+            # Process batting
+            if not bat.empty:
+                bat = bat.copy()
+                bat['game_date'] = pd.to_datetime(date_str)
+                bat['game_year'] = year
+                bat[['Lg', 'full_team_name']] = bat.apply(lambda r: pd.Series(get_team_info(year, r['Tm'])), axis=1)
+                batting_dfs.append(bat)
 
-    # Add Lg + full_team_name from Lahman
-    pitching_logs[['Lg', 'full_team_name']] = pitching_logs.apply(
-        lambda row: pd.Series(get_team_info(int(row['game_year']), row['Tm'])), axis=1
-    )
+            # Process pitching
+            if not pit.empty:
+                pit = pit.copy()
+                pit['game_date'] = pd.to_datetime(date_str)
+                pit['game_year'] = year
+                pit[['Lg', 'full_team_name']] = pit.apply(lambda r: pd.Series(get_team_info(year, r['Tm'])), axis=1)
+                pitching_dfs.append(pit)
 
-    # Add player_name from Lahman people table (key_mlbam = Statcast ID)
-    pitcher_map = people_df[people_df['key_mlbam'].isin(pitching_logs['player_id'])]\
-        [['key_mlbam', 'nameFirst', 'nameLast']]
-    pitcher_map['player_name'] = pitcher_map['nameFirst'] + ' ' + pitcher_map['nameLast']
-    pitching_logs = pitching_logs.merge(pitcher_map[['key_mlbam', 'player_name']], 
-                                        left_on='player_id', right_on='key_mlbam', how='left')
-    pitching_logs.drop(columns=['key_mlbam'], inplace=True, errors='ignore')
+            # Incremental checkpoint every 10 days
+            if (i + 1) % 10 == 0 or (i + 1) == len(remaining_dates):
+                print(f"   💾 Checkpointing after {i+1} new days...")
+                if batting_dfs:
+                    pd.concat(batting_dfs, ignore_index=True).to_parquet(batting_path, index=False)
+                if pitching_dfs:
+                    pd.concat(pitching_dfs, ignore_index=True).to_parquet(pitching_path, index=False)
 
-    pitching_logs.to_parquet(f"{raw_dir}/pitching_game_logs_{year}.parquet")
-    print(f"✅ Pitching game logs saved: {pitching_logs.shape}")
+    except KeyboardInterrupt:
+        print("\n\n⚠️ Interrupted — saving current progress...")
+    finally:
+        # Final save
+        if batting_dfs:
+            pd.concat(batting_dfs, ignore_index=True).to_parquet(batting_path, index=False)
+        if pitching_dfs:
+            pd.concat(pitching_dfs, ignore_index=True).to_parquet(pitching_path, index=False)
 
-    print(f"🎉 All done for {year}!")
+        if failed_dates:
+            with open(failed_path, "a") as f:
+                for d in failed_dates:
+                    f.write(d + "\n")
+            print(f"   ⚠️ {len(failed_dates)} failed dates saved to {failed_path}")
+
+    print(f"\n🎉 {year} complete! Batting: {len(batting_dfs[0]) if batting_dfs else 0:,} rows")
 
 if __name__ == "__main__":
-    fetch_game_logs(2025)
+    fetch_game_logs(2023)   # ← change to 2023, 2024, etc.

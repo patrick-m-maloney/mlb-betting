@@ -1,0 +1,34 @@
+📥 Starting / resuming daily BR logs fetch for 2023...
+Traceback (most recent call last):
+  File "/Users/patrickmaloney/Documents/mlb-betting/src/data_ingestion/player_logs_fetcher.py", line 129, in <module>
+    fetch_game_logs(2023)   # ← change to 2023, 2024, etc.
+    ~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/patrickmaloney/Documents/mlb-betting/src/data_ingestion/player_logs_fetcher.py", line 30, in fetch_game_logs
+    schedule = pd.read_parquet(schedule_path)
+  File "/Users/patrickmaloney/Documents/mlb-betting/venv314/lib/python3.14/site-packages/pandas/io/parquet.py", line 671, in read_parquet
+    return impl.read(
+           ~~~~~~~~~^
+        path,
+        ^^^^^
+    ...<6 lines>...
+        **kwargs,
+        ^^^^^^^^^
+    )
+    ^
+  File "/Users/patrickmaloney/Documents/mlb-betting/venv314/lib/python3.14/site-packages/pandas/io/parquet.py", line 253, in read
+    path_or_handle, handles, filesystem = _get_path_or_handle(
+                                          ~~~~~~~~~~~~~~~~~~~^
+        path,
+        ^^^^^
+    ...<2 lines>...
+        mode="rb",
+        ^^^^^^^^^^
+    )
+    ^
+  File "/Users/patrickmaloney/Documents/mlb-betting/venv314/lib/python3.14/site-packages/pandas/io/parquet.py", line 141, in _get_path_or_handle
+    handles = get_handle(
+        path_or_handle, mode, is_text=False, storage_options=storage_options
+    )
+  File "/Users/patrickmaloney/Documents/mlb-betting/venv314/lib/python3.14/site-packages/pandas/io/common.py", line 935, in get_handle
+    handle = open(handle, ioargs.mode)
+FileNotFoundError: [Errno 2] No such file or directory: 'data/raw/schedules/games_2023.parquet'
