@@ -122,4 +122,4 @@ def fetch_game_logs(year: int = 2023):
     print("   (Progress saved every 10 days — you can safely stop/restart anytime)")
 
 if __name__ == "__main__":
-    fetch_game_logs(2024)   # ← CHANGE THIS NUMBER ONLY
+    fetch_game_logs(2019)   # ← CHANGE THIS NUMBER ONLY
