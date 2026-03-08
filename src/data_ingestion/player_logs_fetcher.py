@@ -4,7 +4,6 @@ import pybaseball as pb
 import time
 import random
 from tqdm import tqdm
-from datetime import date
 
 # ====================== LAHMAN REFERENCE ======================
 LAHMAN_DIR = "data/reference/lahman_files"
@@ -22,11 +21,26 @@ def get_team_info(year: int, tm: str):
         return row['lgID'], row['name']
     return pd.NA, f"Unknown ({tm})"
 
-# ====================== MAIN FETCHER (RESUMABLE) ======================
+# ====================== FETCHER WITH CHECKPOINTS ======================
 def fetch_game_logs(year: int = 2023):
     print(f"📥 Starting / resuming daily BR logs fetch for {year}...")
 
-    schedule_path = f"data/raw/schedules/games_{year}.parquet"
+    # Smart path: tries flat first, then old subfolder
+    flat_path = f"data/raw/schedules/games_{year}.parquet"
+    sub_path  = f"data/raw/schedules/{year}/games_{year}.parquet"
+    
+    if os.path.exists(flat_path):
+        schedule_path = flat_path
+        print(f"   → Using flat schedule file: {schedule_path}")
+    elif os.path.exists(sub_path):
+        schedule_path = sub_path
+        print(f"   → Using nested schedule file: {schedule_path}")
+    else:
+        print(f"❌ ERROR: Schedule file missing for {year}!")
+        print(f"   Checked:\n   1. {flat_path}\n   2. {sub_path}")
+        print("\nRun your schedule fetcher first for this year (or move the file).")
+        return
+
     schedule = pd.read_parquet(schedule_path)
     schedule['game_date'] = pd.to_datetime(schedule['game_date'])
 
@@ -42,88 +56,70 @@ def fetch_game_logs(year: int = 2023):
     os.makedirs(out_dir, exist_ok=True)
     batting_path = f"{out_dir}/batting_game_logs_{year}.parquet"
     pitching_path = f"{out_dir}/pitching_game_logs_{year}.parquet"
-    failed_path = f"{out_dir}/failed_dates_{year}.txt"
 
-    # === RESUME LOGIC ===
-    processed_dates = set()
+    # Resume from existing file
     batting_dfs = []
     pitching_dfs = []
+    processed_dates = set()
 
     if os.path.exists(batting_path):
-        print("   → Existing file found — resuming...")
+        print("   → Resuming from existing file...")
         existing = pd.read_parquet(batting_path)
         if 'game_date' in existing.columns:
             processed_dates = set(existing['game_date'].dt.date.unique())
             batting_dfs.append(existing)
-            print(f"      Already processed: {len(processed_dates)} days")
+            print(f"      Already done: {len(processed_dates)} days")
 
     remaining_dates = [d for d in all_dates if d not in processed_dates]
     print(f"   → {len(remaining_dates)} days still needed\n")
 
-    failed_dates = []
+    for i, game_date in enumerate(tqdm(remaining_dates, desc="Fetching")):
+        date_str = game_date.strftime('%Y-%m-%d')
 
-    try:
-        for i, game_date in enumerate(tqdm(remaining_dates, desc="Fetching")):
-            date_str = game_date.strftime('%Y-%m-%d')
+        success = False
+        for attempt in range(5):
+            try:
+                bat = pb.batting_stats_range(date_str, date_str)
+                pit = pb.pitching_stats_range(date_str, date_str)
+                time.sleep(random.uniform(4.5, 8.5))
+                success = True
+                break
+            except Exception:
+                wait = 12 * (2 ** attempt)
+                time.sleep(wait)
 
-            success = False
-            for attempt in range(6):
-                try:
-                    bat = pb.batting_stats_range(date_str, date_str)
-                    pit = pb.pitching_stats_range(date_str, date_str)
-                    time.sleep(random.uniform(4.5, 8.5))
-                    success = True
-                    break
-                except Exception as e:
-                    wait = 12 * (2 ** attempt)
-                    time.sleep(wait)
+        if not success:
+            print(f"   ❌ Failed {date_str} — skipping")
+            continue
 
-            if not success:
-                print(f"   ❌ Failed {date_str}")
-                failed_dates.append(date_str)
-                time.sleep(25)
-                continue
+        if not bat.empty:
+            bat = bat.copy()
+            bat['game_date'] = pd.to_datetime(date_str)
+            bat['game_year'] = year
+            bat[['Lg', 'full_team_name']] = bat.apply(lambda r: pd.Series(get_team_info(year, r['Tm'])), axis=1)
+            bat['Lg'] = bat.Lev.str.split('-').str[1]
+            batting_dfs.append(bat)
 
-            # Process batting
-            if not bat.empty:
-                bat = bat.copy()
-                bat['game_date'] = pd.to_datetime(date_str)
-                bat['game_year'] = year
-                bat[['Lg', 'full_team_name']] = bat.apply(lambda r: pd.Series(get_team_info(year, r['Tm'])), axis=1)
-                batting_dfs.append(bat)
+        if not pit.empty:
+            pit = pit.copy()
+            pit['game_date'] = pd.to_datetime(date_str)
+            pit['game_year'] = year
+            pit[['Lg', 'full_team_name']] = pit.apply(lambda r: pd.Series(get_team_info(year, r['Tm'])), axis=1)
+            pit['Lg'] = pit.Lev.str.split('-').str[1]
+            pitching_dfs.append(pit)
 
-            # Process pitching
-            if not pit.empty:
-                pit = pit.copy()
-                pit['game_date'] = pd.to_datetime(date_str)
-                pit['game_year'] = year
-                pit[['Lg', 'full_team_name']] = pit.apply(lambda r: pd.Series(get_team_info(year, r['Tm'])), axis=1)
-                pitching_dfs.append(pit)
+        # 💾 SAVE EVERY 10 SUCCESSFUL DAYS
+        if (i + 1) % 10 == 0 or (i + 1) == len(remaining_dates):
+            print(f"   💾 Checkpointing after {i+1} new days...")
+            if batting_dfs:
+                pd.concat(batting_dfs, ignore_index=True).to_parquet(batting_path, index=False)
+            if pitching_dfs:
+                pd.concat(pitching_dfs, ignore_index=True).to_parquet(pitching_path, index=False)
 
-            # Incremental checkpoint every 10 days
-            if (i + 1) % 10 == 0 or (i + 1) == len(remaining_dates):
-                print(f"   💾 Checkpointing after {i+1} new days...")
-                if batting_dfs:
-                    pd.concat(batting_dfs, ignore_index=True).to_parquet(batting_path, index=False)
-                if pitching_dfs:
-                    pd.concat(pitching_dfs, ignore_index=True).to_parquet(pitching_path, index=False)
-
-    except KeyboardInterrupt:
-        print("\n\n⚠️ Interrupted — saving current progress...")
-    finally:
-        # Final save
-        if batting_dfs:
-            pd.concat(batting_dfs, ignore_index=True).to_parquet(batting_path, index=False)
-        if pitching_dfs:
-            pd.concat(pitching_dfs, ignore_index=True).to_parquet(pitching_path, index=False)
-
-        if failed_dates:
-            with open(failed_path, "a") as f:
-                for d in failed_dates:
-                    f.write(d + "\n")
-            print(f"   ⚠️ {len(failed_dates)} failed dates saved to {failed_path}")
-
-    print(f"\n🎉 {year} complete! Batting: {len(batting_dfs[0]) if batting_dfs else 0:,} rows")
+    print(f"\n🎉 {year} complete!")
+    print(f"   Batting : {sum(len(df) for df in batting_dfs):,} rows")
+    print(f"   Pitching: {sum(len(df) for df in pitching_dfs):,} rows")
+    print("   (Progress saved every 10 days — you can safely stop/restart anytime)")
 
 if __name__ == "__main__":
-    fetch_game_logs(2023)   # ← change to 2023, 2024, etc.
+    fetch_game_logs(2024)   # ← CHANGE THIS NUMBER ONLY
