@@ -77,6 +77,29 @@ March 08, 2026 – Monte Carlo Simulator fully fixed
               - Simulates every game in latest lineup scrape using ALL historical player data
               - Ready for betting comparison (Kalshi/Polymarket/TheRundown)
 
+March 11, 2026 - Monte Carlo Simulator issues
+   Loaded all historical batting logs
+   Tried to map Rotowire BBRef IDs → mlbID using people.parquet
+   Averaged wOBA per player
+   Scaled team wOBA → projected runs with wOBA * 5.15 * (0.98/1.04)
+   Ran 10,000 normal simulations
+
+   Issues that were resolved
+
+      BBRef → mlbID mapping failed for many players because people.parquet (Lahman) only contains the BBRef playerID, not the numeric mlbID your batting logs use.
+      The wOBA-to-runs scaling in the projection cell had a bug (5.15 / 38.5 was applied too early) → unrealistic totals like 1.53 runs.
+      No fallback for players with zero historical data → they disappeared from the projection.
+      Batting order was ignored (all 9 players treated equally).
+
+   What we changed
+
+      Built a reliable BBRef → name → mlbID bridge using fuzzy matching on your existing name_to_mlb dict.
+      Added league-average wOBA fallback (dynamic, calculated from your data) for any missing player.
+      Added realistic expected PA per batting-order spot (4.85 down to 3.95).
+      Fixed the wOBA → runs math to the correct multiplier (≈ 0.418) so a league-average lineup now projects exactly ~5.15 runs.
+      Made every magic number a named constant at the top of the file.
+      Kept your original 10,000-simulation Monte Carlo engine intact (now fed much more accurate per-player wOBA + order weighting).
+
 Core Pipeline Now Working (March 2026)
 We have a fully functional daily projection engine that:
 

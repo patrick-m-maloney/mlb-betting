@@ -70,4 +70,4 @@ def fetch_schedules(start_year=2000, end_year=None):
     print("✅ All schedules fetched and saved per-year!")
 
 if __name__ == "__main__":
-    fetch_schedules(start_year=2023, end_year=2023)
+    fetch_schedules(start_year=2017, end_year=2017)
