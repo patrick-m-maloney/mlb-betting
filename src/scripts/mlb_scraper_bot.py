@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+# To run: caffeinate -s python -m src.automation.mlb_scraper_bot
+
 # Robust path fix (repo src/ layout)
 root = Path(__file__).resolve().parent.parent.parent
 if str(root) not in sys.path:
@@ -13,7 +15,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 # Existing + new prediction-market fetchers
 from src.data_ingestion.lineups import fetch_lineups, save_lineups
-from src.data_ingestion.odds_fetcher import fetch_odds, fetch_futures, save_snapshot
+from src.data_ingestion.the_odds_api_fetcher import fetch_odds, fetch_futures, save_snapshot
 from src.data_ingestion.rundown_fetcher import fetch_rundown_mlb
 from src.data_ingestion.kalshi_fetcher import fetch_kalshi_mlb
 from src.data_ingestion.polymarket_fetcher import fetch_polymarket_mlb
