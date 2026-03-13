@@ -1,0 +1,12 @@
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: Operation not permitted
+chdir: error retrieving current directory: getcwd: cannot access parent directories: Operation not permitted
+/bin/sh: logs/mlb_scraper_bot.log: Operation not permitted
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: Operation not permitted
+chdir: error retrieving current directory: getcwd: cannot access parent directories: Operation not permitted
+/bin/sh: logs/mlb_scraper_bot.log: Operation not permitted
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: Operation not permitted
+chdir: error retrieving current directory: getcwd: cannot access parent directories: Operation not permitted
+/bin/sh: logs/mlb_scraper_bot.log: Operation not permitted
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: Operation not permitted
+chdir: error retrieving current directory: getcwd: cannot access parent directories: Operation not permitted
+/bin/sh: logs/mlb_scraper_bot.log: Operation not permitted

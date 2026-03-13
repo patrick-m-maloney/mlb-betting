@@ -1,3 +1,4 @@
+apschedule      >= 3.11.2
 beautifulsoup4  >= 4.12.3
 duckdb          >= 1.0.0
 lxml            >= 5.2.1

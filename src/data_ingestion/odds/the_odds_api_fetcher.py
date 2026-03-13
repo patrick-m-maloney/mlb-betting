@@ -55,18 +55,21 @@ def fetch_odds(sport_key: str, markets: str) -> pd.DataFrame | None:
     return normalize_odds_response(resp.json(), datetime.now(timezone.utc))
 
 def fetch_futures() -> pd.DataFrame | None:
-    """Dedicated futures (season win totals, World Series, division winners, etc.)"""
+    """Dedicated futures (World Series, etc.). Only valid keys per current The Odds API."""
     futures_sports = [
         "baseball_mlb_world_series_winner",
-        "baseball_mlb_al_winner",
-        "baseball_mlb_nl_winner",
-        # add more as needed: al_east_winner, etc.
+        # AL/NL + division winners are NOT valid sport keys on The Odds API
+        # (we can add player props / other futures later when they appear)
     ]
     all_futures = []
     for sport in futures_sports:
-        df = fetch_odds(sport, "outrights")
-        if df is not None and not df.empty:
-            all_futures.append(df)
+        try:
+            df = fetch_odds(sport, "outrights")
+            if df is not None and not df.empty:
+                all_futures.append(df)
+                print(f"✅ {sport} futures fetched")
+        except Exception as e:
+            print(f"⚠️  Skipped futures {sport}: {e}")
     if all_futures:
         return pd.concat(all_futures, ignore_index=True)
     return None
