@@ -22,3 +22,7 @@ when we switch to batter vs pitcher simulation, how do we do this?
     - i assume we have stats for pitchers such as # pitches thrown a game, etc
     - can we map effectiveness over # of pitches? (so pitchers would have almost 3 levels of performance modelling: course of career, course of season, and course of the game)
 As for next steps, I want to really focus on improving the player performance model before going into 
+
+
+
+ok, so first I made some small tweaks to the file structure. odds_fetcher was renamed to the_odds_api_fetcher to avoid confusion. Second, all the odds fetchers were moved to a folder within data_ingestion called odds (kalshi, polymarket, rundown, odds api). Third, I first want you to give me the fully updated files for all of these that are now going to append to databases before we move on. Fourth, I don't care about 'stale' data in the sense of if there are odds for a game very far out I still want to capture that info, I just want to get all available odds data from all available sources ,together, in one time series database. Fifth, I don't want to run the automation stuff yet at all. I first want to be able to just run this manually to check the data looks good and once that is done then we can set up automation

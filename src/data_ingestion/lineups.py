@@ -19,6 +19,7 @@ import duckdb
 
 from config.settings import BRONZE_DIR, SILVER_DIR, DB_PATH
 from src.data_ingestion.player_id_matching import PlayerMatcher
+from src.database.db_manager import append_to_table
 
 # Paths
 BRONZE_LINEUPS_DIR = BRONZE_DIR / "lineups"

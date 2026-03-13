@@ -2,6 +2,9 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
+import yaml
+from pathlib import Path
+
 load_dotenv()
 
 # API Keys
@@ -16,7 +19,7 @@ SPORT = "baseball_mlb"
 BASE_DIR = Path(__file__).resolve().parent.parent
 RAW_ODDS_PATH = BASE_DIR / "data" / "raw" / "odds"
 PROCESSED_PATH = BASE_DIR / "data" / "processed"
-print(BASE_DIR)
+
 # new
 # BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / "data"
@@ -48,3 +51,5 @@ THE_RUNDOWN_API_KEY = os.getenv("THE_RUNDOWN_API_KEY")
 # Matching thresholds
 MATCH_CONFIDENCE_THRESHOLD = 85
 FUZZY_THRESHOLD = 90
+
+DATA_SCHEMAS = yaml.safe_load(Path("config/data_schemas.yaml").read_text(encoding="utf-8"))

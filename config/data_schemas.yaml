@@ -1,0 +1,161 @@
+# =============================================
+# MLB Betting Data Schemas (YAML)
+# Single source of truth for central DuckDB + silver layers
+# Location: config/data_schemas.yaml
+# Last updated: 2026-03-13
+# =============================================
+
+version: "1.0"
+
+# Central time-series database (data/db/mlb_betting.duckdb)
+central_db:
+  path: "data/db/mlb_betting.duckdb"
+  tables:
+
+    raw_lineups:
+      description: "Live Rotowire lineups + rosters (preseason + regular season)"
+      source: "src/data_ingestion/lineups.py"
+      granularity: "1 row per game per scrape"
+      primary_key: ["fetch_timestamp", "home_team", "away_team"]
+      columns:
+        fetch_timestamp:
+          type: TIMESTAMP
+          required: true
+          description: "When this scrape happened"
+        game_date:
+          type: DATE
+          required: true
+        game_time:
+          type: TIMESTAMP
+          required: true
+        away_team:
+          type: VARCHAR
+          required: true
+        home_team:
+          type: VARCHAR
+          required: true
+        away_starter_name:
+          type: VARCHAR
+        away_starter_hand:
+          type: VARCHAR
+        away_starter_primary_bbref_id:
+          type: VARCHAR
+        home_starter_name:
+          type: VARCHAR
+        home_starter_hand:
+          type: VARCHAR
+        home_starter_primary_bbref_id:
+          type: VARCHAR
+        away_lineup_bbref_ids:
+          type: LIST(VARCHAR)
+        home_lineup_bbref_ids:
+          type: LIST(VARCHAR)
+        away_lineup:
+          type: LIST(VARCHAR)
+        home_lineup:
+          type: LIST(VARCHAR)
+        is_confirmed:
+          type: BOOLEAN
+        weather:
+          type: VARCHAR
+        umpire:
+          type: VARCHAR
+        odds_line:
+          type: STRUCT
+        odds_ou:
+          type: STRUCT
+
+    raw_odds:
+      description: "All markets from The Odds API (h2h, spreads, totals, futures)"
+      source: "src/data_ingestion/odds/the_odds_api_fetcher.py"
+      granularity: "1 row per outcome/book/market"
+      primary_key: ["fetch_timestamp", "id"]
+      columns:
+        fetch_timestamp:
+          type: TIMESTAMP
+          required: true
+        sport_key:
+          type: VARCHAR
+        sport_title:
+          type: VARCHAR
+        commence_time:
+          type: TIMESTAMP
+        home_team:
+          type: VARCHAR
+        away_team:
+          type: VARCHAR
+        bookmakers:
+          type: STRUCT
+        id:
+          type: VARCHAR
+        source:
+          type: VARCHAR
+          default: "TheOddsAPI"
+
+    raw_kalshi:
+      description: "Kalshi prediction markets (futures + player props)"
+      source: "src/data_ingestion/odds/kalshi_fetcher.py"
+      note: "Currently empty — filter will be fixed later"
+      columns:
+        fetch_timestamp:
+          type: TIMESTAMP
+          required: true
+        source:
+          type: VARCHAR
+          default: "Kalshi"
+        title:
+          type: VARCHAR
+        subtitle:
+          type: VARCHAR
+        yes_price:
+          type: DOUBLE
+        no_price:
+          type: DOUBLE
+        # ... other dynamic Kalshi fields auto-added
+
+    raw_polymarket:
+      description: "Polymarket prediction markets"
+      source: "src/data_ingestion/odds/polymarket_fetcher.py"
+      note: "Currently empty — filter will be fixed later"
+      columns:
+        fetch_timestamp:
+          type: TIMESTAMP
+          required: true
+        source:
+          type: VARCHAR
+          default: "Polymarket"
+        question:
+          type: VARCHAR
+        volume:
+          type: DOUBLE
+        yes_price:
+          type: DOUBLE
+        # ... other dynamic fields
+
+    raw_rundown:
+      description: "TheRundown odds (when API key activated)"
+      source: "src/data_ingestion/odds/rundown_fetcher.py"
+      columns:
+        fetch_timestamp:
+          type: TIMESTAMP
+          required: true
+        source:
+          type: VARCHAR
+          default: "TheRundown"
+
+# Silver layer (still maintained for backward compatibility)
+silver:
+  lineups:
+    path: "data/silver/lineups/year=*/month=*/day=*/lineups.parquet"
+    view_name: "silver_lineups"
+    description: "Hive-partitioned Parquet of raw_lineups (fast analytics)"
+    columns: "same as raw_lineups + Hive partitioning on year/month/day"
+
+# Future tables (planned in repo README.md + grok_readme.txt)
+future_tables:
+  player_projections:
+    description: "wOBA/FIP + platoon splits (next priority)"
+  simulations:
+    description: "Monte Carlo outputs (RS/RA/totals/spread)"
+  edges:
+    description: "Bet recommendations + limit tracking"
