@@ -1,6 +1,16 @@
 <!-- Activating virtual environment (from within mlb-betting): source ../venv314/bin/activate -->
 # MLB Betting Algorithm System
 
+Claude Code implementation:
+Create Docker Container
+docker run -it \
+  -v /Users/patrickmaloney/Documents/mlb-betting \
+  -w /mlb-betting \
+  node:20 bash
+
+run this command WITHIN A DOCKER
+  curl -fsSL https://claude.ai/install.sh | bash
+
 **Advanced matchup-specific baseball betting engine** — daily games + futures with +EV edge across FanDuel/DK/BetMGM + Kalshi/Polymarket.
 
 **Core Philosophy**  
@@ -129,5 +139,7 @@ Hyper-specific projections (lineup × probable starter × platoon × park/weathe
 - Works with your old HTML snapshots for perfect backtesting
 
 ---
+
+
 
 <!-- Need to run this through and remove duplicate info, + clean it up a bit -->
