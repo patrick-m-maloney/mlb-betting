@@ -17,13 +17,12 @@ from datetime import datetime
 import re
 import duckdb
 
-from config.settings import BRONZE_DIR, SILVER_DIR, DB_PATH
+from config.settings import BRONZE_DIR, SILVER_DIR, BASE_DIR
 from src.data_ingestion.player_id_matching import PlayerMatcher
-from src.database.db_manager import append_to_table
 
 # Paths
-BRONZE_LINEUPS_DIR = BRONZE_DIR / "lineups"
-SILVER_LINEUPS_DIR = SILVER_DIR / "lineups"
+BRONZE_LINEUPS_DIR = BASE_DIR / "data" / "bronze" / "lineups"
+SILVER_LINEUPS_DIR = BASE_DIR / "data" / "silver" / "lineups"
 BRONZE_LINEUPS_DIR.mkdir(parents=True, exist_ok=True)
 SILVER_LINEUPS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -202,39 +201,46 @@ def save_lineups(df: pd.DataFrame):
     if df.empty:
         return
 
-    # Bronze audit
-    date_str = df["fetch_timestamp"].iloc[0].strftime("%Y-%m-%d")
-    time_str = df["fetch_timestamp"].iloc[0].strftime("%H%M%S")
-    bronze_path = BRONZE_LINEUPS_DIR / date_str
-    bronze_path.mkdir(parents=True, exist_ok=True)
-    bronze_file = bronze_path / f"lineups_{time_str}.parquet"
-    df.to_parquet(bronze_file, compression="snappy")
-    print(f"✅ Saved bronze audit → {bronze_file}")
+    year = df["fetch_timestamp"].iloc[0].year
+    bronze_target = BRONZE_LINEUPS_DIR / f"lineups_{year}.parquet"
+    silver_target = SILVER_LINEUPS_DIR / f"lineups_{year}.parquet"
 
-    # Silver append-only
-    for date, group in df.groupby("game_date"):
-        partition_dir = SILVER_LINEUPS_DIR / f"year={date.year}" / f"month={date.month:02d}" / f"day={date.day:02d}"
-        partition_dir.mkdir(parents=True, exist_ok=True)
-        file_path = partition_dir / "lineups.parquet"
+    con = duckdb.connect()
+    con.register("_df", df)
 
-        if file_path.exists():
-            existing = pd.read_parquet(file_path)
-            combined = pd.concat([existing, group], ignore_index=True)
-            combined = combined.drop_duplicates(subset=["game_date", "away_team", "home_team", "fetch_timestamp"], keep="last")
-        else:
-            combined = group
+    # Bronze: append all raw rows
+    if bronze_target.exists():
+        bronze_sql = f"""
+            SELECT * FROM read_parquet('{bronze_target}', union_by_name=true)
+            UNION ALL BY NAME
+            SELECT * FROM _df
+        """
+    else:
+        bronze_sql = "SELECT * FROM _df"
+    con.execute(f"COPY ({bronze_sql}) TO '{bronze_target}' (FORMAT PARQUET, COMPRESSION ZSTD)")
+    n_bronze = con.execute(f"SELECT COUNT(*) FROM read_parquet('{bronze_target}')").fetchone()[0]
+    print(f"✅ Bronze lineups → {bronze_target.name}: {n_bronze:,} total rows")
 
-        combined.to_parquet(file_path, compression="zstd", index=False)
-        print(f"✅ Silver partition saved → {file_path} ({len(combined)} games)")
+    # Silver: deduplicated by game_date + teams, keep latest fetch_timestamp
+    if silver_target.exists():
+        silver_sql = f"""
+            SELECT * QUALIFY row_number() OVER (
+                PARTITION BY game_date, away_team, home_team
+                ORDER BY fetch_timestamp DESC
+            ) = 1
+            FROM (
+                SELECT * FROM read_parquet('{silver_target}', union_by_name=true)
+                UNION ALL BY NAME
+                SELECT * FROM _df
+            )
+        """
+    else:
+        silver_sql = "SELECT * FROM _df"
+    con.execute(f"COPY ({silver_sql}) TO '{silver_target}' (FORMAT PARQUET, COMPRESSION ZSTD)")
+    n_silver = con.execute(f"SELECT COUNT(*) FROM read_parquet('{silver_target}')").fetchone()[0]
+    print(f"✅ Silver lineups → {silver_target.name}: {n_silver:,} total rows")
 
-    # DuckDB view — absolute path + context manager (never locks)
-    with duckdb.connect(str(DB_PATH)) as con:
-        abs_pattern = str(SILVER_LINEUPS_DIR / "year=*/month=*/day=*/lineups.parquet")
-        con.execute(f"""
-            CREATE OR REPLACE VIEW silver_lineups AS 
-            SELECT * FROM read_parquet('{abs_pattern}', union_by_name=True)
-        """)
-        print(f"✅ DuckDB view 'silver_lineups' updated (absolute path: {abs_pattern})")
+    con.close()
 
 if __name__ == "__main__":
     print("🚀 Fetching live Rotowire daily lineups...")

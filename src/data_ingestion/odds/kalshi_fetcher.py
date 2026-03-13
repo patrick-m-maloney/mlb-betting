@@ -1,80 +1,92 @@
-# import requests
-# import pandas as pd
-# from datetime import datetime, timezone
-# from pathlib import Path
-# from config.settings import RAW_ODDS_PATH
+"""
+Kalshi odds fetcher.
+Appends to data/bronze/odds/kalshi_YYYY.parquet (one file per year).
+Each row = one market with a snapshot_timestamp.
+"""
 
-# def fetch_kalshi_mlb() -> pd.DataFrame | None:
-#     """Public Kalshi markets (no key needed). Filters for any MLB/Pro Baseball markets."""
-#     url = "https://api.elections.kalshi.com/trade-api/v2/markets?status=open&limit=1000"
-#     try:
-#         resp = requests.get(url, timeout=15)
-#         resp.raise_for_status()
-#         data = resp.json().get("markets", [])
-#         if not data:
-#             print("⚠️  Kalshi: no markets returned")
-#             return None
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
-#         df = pd.json_normalize(data)
-#         # Filter to MLB-related markets (mostly futures/awards/season stats in 2026)
-#         mlb_mask = df.get("title", "").str.contains("MLB|baseball|Pro Baseball", case=False, na=False)
-#         df = df[mlb_mask]
-
-#         if df.empty:
-#             print("⚠️  No active MLB markets on Kalshi right now")
-#             return None
-
-#         df["fetch_timestamp"] = datetime.now(timezone.utc)
-#         df["source"] = "Kalshi"
-#         save_snapshot(df, "kalshi")
-#         print(f"✅ Kalshi: saved {len(df)} MLB markets")
-#         return df
-#     except Exception as e:
-#         print(f"⚠️  Kalshi skipped: {e}")
-#         return None
-
-# def save_snapshot(df: pd.DataFrame, subfolder: str):
-#     if df is None or df.empty:
-#         return
-#     date_str = datetime.now().strftime("%Y-%m-%d")
-#     path = RAW_ODDS_PATH / date_str / subfolder
-#     path.mkdir(parents=True, exist_ok=True)
-#     ts = datetime.now().strftime("%H%M%S")
-#     df.to_parquet(path / f"markets_{ts}.parquet", compression="snappy")
-#     print(f"   → Saved to {path}/markets_{ts}.parquet")
-
+import json
 import requests
-import pandas as pd
+import duckdb
 from datetime import datetime, timezone
-from src.database.db_manager import append_to_table
 
-def fetch_kalshi_mlb() -> pd.DataFrame | None:
+from config.settings import BASE_DIR
+
+BRONZE_ODDS_DIR = BASE_DIR / "data" / "bronze" / "odds"
+_MLB_KEYWORDS = ["mlb", "baseball", "world series", "mvp", "cy young", "pro baseball"]
+_FILTER_COLS = ["title", "subtitle", "description", "category", "event_title"]
+
+
+def _is_mlb(market: dict) -> bool:
+    for col in _FILTER_COLS:
+        val = str(market.get(col, "")).lower()
+        if any(kw in val for kw in _MLB_KEYWORDS):
+            return True
+    return False
+
+
+def _append_to_parquet(rows: list[dict], year: int) -> None:
+    """Append rows to the per-year bronze parquet file via DuckDB."""
+    if not rows:
+        return
+
+    BRONZE_ODDS_DIR.mkdir(parents=True, exist_ok=True)
+    target = BRONZE_ODDS_DIR / f"kalshi_{year}.parquet"
+
+    con = duckdb.connect()
+    json_str = json.dumps(rows)
+    new_rows_sql = f"SELECT * FROM read_json_auto($${json_str}$$)"
+
+    if target.exists():
+        final_sql = f"""
+            SELECT * FROM read_parquet('{target}', union_by_name=true)
+            UNION ALL BY NAME
+            ({new_rows_sql})
+        """
+    else:
+        final_sql = new_rows_sql
+
+    con.execute(f"COPY ({final_sql}) TO '{target}' (FORMAT PARQUET, COMPRESSION ZSTD)")
+    n = con.execute(f"SELECT COUNT(*) FROM read_parquet('{target}')").fetchone()[0]
+    con.close()
+    print(f"   ✅ {target.name}: {n:,} total rows")
+
+
+def fetch_kalshi_mlb() -> list[dict] | None:
+    """Fetch open Kalshi MLB markets and append to bronze parquet."""
     url = "https://api.elections.kalshi.com/trade-api/v2/markets?status=open&limit=1000"
     try:
         resp = requests.get(url, timeout=15)
         resp.raise_for_status()
         data = resp.json().get("markets", [])
-        df = pd.json_normalize(data)
-        
-        # Broad MLB filter (all you see on the site + futures)
-        keywords = ["MLB", "baseball", "Pro Baseball", "World Series", "MVP", "Cy Young"]
-        mask = pd.Series([False] * len(df))
-        for col in ['title', 'subtitle', 'description', 'category', 'event_title']:
-            if col in df.columns:
-                mask |= df[col].astype(str).str.contains('|'.join(keywords), case=False, na=False)
-        df = df[mask]
-        
-        if df.empty:
+
+        snapshot_ts = datetime.now(timezone.utc).isoformat()
+        year = datetime.now(timezone.utc).year
+
+        rows = []
+        for market in data:
+            if _is_mlb(market):
+                rows.append({
+                    **market,
+                    "snapshot_timestamp": snapshot_ts,
+                    "snapshot_date": snapshot_ts[:10],
+                    "source": "kalshi",
+                })
+
+        if not rows:
             print("⚠️  Kalshi: no MLB markets right now")
             return None
-        
-        df["source"] = "Kalshi"
-        append_to_table(df, "raw_kalshi")
-        print(f"✅ Kalshi: appended {len(df)} MLB markets")
-        return df
+
+        _append_to_parquet(rows, year)
+        print(f"✅ Kalshi: {len(rows)} MLB markets appended")
+        return rows
     except Exception as e:
         print(f"⚠️  Kalshi skipped: {e}")
         return None
+
 
 if __name__ == "__main__":
     fetch_kalshi_mlb()

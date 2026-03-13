@@ -1,83 +1,95 @@
-# import requests
-# import pandas as pd
-# from datetime import datetime, timezone
-# from pathlib import Path
-# from config.settings import RAW_ODDS_PATH
+"""
+Polymarket odds fetcher.
+Appends to data/bronze/odds/polymarket_YYYY.parquet (one file per year).
+Each row = one market with a snapshot_timestamp.
+"""
 
-# def fetch_polymarket_mlb() -> pd.DataFrame | None:
-#     """Public Polymarket Gamma API (no key needed). Filters for MLB markets."""
-#     url = "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=1000"
-#     try:
-#         resp = requests.get(url, timeout=15)
-#         resp.raise_for_status()
-#         data = resp.json()  # list of markets
-#         if not data:
-#             print("⚠️  Polymarket: no markets returned")
-#             return None
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
-#         df = pd.json_normalize(data)
-#         # Filter to MLB-related (games, futures, awards, etc.)
-#         mlb_mask = df.get("question", "").str.contains("MLB|baseball", case=False, na=False) | \
-#                    df.get("tags", "").astype(str).str.contains("MLB|baseball", case=False, na=False)
-#         df = df[mlb_mask]
-
-#         if df.empty:
-#             print("⚠️  No active MLB markets on Polymarket right now")
-#             return None
-
-#         df["fetch_timestamp"] = datetime.now(timezone.utc)
-#         df["source"] = "Polymarket"
-#         save_snapshot(df, "polymarket")
-#         print(f"✅ Polymarket: saved {len(df)} MLB markets")
-#         return df
-#     except Exception as e:
-#         print(f"⚠️  Polymarket skipped: {e}")
-#         return None
-
-# def save_snapshot(df: pd.DataFrame, subfolder: str):
-#     if df is None or df.empty:
-#         return
-#     date_str = datetime.now().strftime("%Y-%m-%d")
-#     path = RAW_ODDS_PATH / date_str / subfolder
-#     path.mkdir(parents=True, exist_ok=True)
-#     ts = datetime.now().strftime("%H%M%S")
-#     df.to_parquet(path / f"markets_{ts}.parquet", compression="snappy")
-#     print(f"   → Saved to {path}/markets_{ts}.parquet")
-
-
+import json
 import requests
-import pandas as pd
+import duckdb
 from datetime import datetime, timezone
-from src.database.db_manager import append_to_table
 
-def fetch_polymarket_mlb() -> pd.DataFrame | None:
+from config.settings import BASE_DIR
+
+BRONZE_ODDS_DIR = BASE_DIR / "data" / "bronze" / "odds"
+_MLB_KEYWORDS = ["mlb", "baseball"]
+
+
+def _is_mlb(market: dict) -> bool:
+    question = str(market.get("question", "")).lower()
+    if any(kw in question for kw in _MLB_KEYWORDS):
+        return True
+    tags = market.get("tags", [])
+    if isinstance(tags, list):
+        tags_str = " ".join(str(t) for t in tags).lower()
+    else:
+        tags_str = str(tags).lower()
+    return any(kw in tags_str for kw in _MLB_KEYWORDS)
+
+
+def _append_to_parquet(rows: list[dict], year: int) -> None:
+    """Append rows to the per-year bronze parquet file via DuckDB."""
+    if not rows:
+        return
+
+    BRONZE_ODDS_DIR.mkdir(parents=True, exist_ok=True)
+    target = BRONZE_ODDS_DIR / f"polymarket_{year}.parquet"
+
+    con = duckdb.connect()
+    json_str = json.dumps(rows)
+    new_rows_sql = f"SELECT * FROM read_json_auto($${json_str}$$)"
+
+    if target.exists():
+        final_sql = f"""
+            SELECT * FROM read_parquet('{target}', union_by_name=true)
+            UNION ALL BY NAME
+            ({new_rows_sql})
+        """
+    else:
+        final_sql = new_rows_sql
+
+    con.execute(f"COPY ({final_sql}) TO '{target}' (FORMAT PARQUET, COMPRESSION ZSTD)")
+    n = con.execute(f"SELECT COUNT(*) FROM read_parquet('{target}')").fetchone()[0]
+    con.close()
+    print(f"   ✅ {target.name}: {n:,} total rows")
+
+
+def fetch_polymarket_mlb() -> list[dict] | None:
+    """Fetch active Polymarket MLB markets and append to bronze parquet."""
     url = "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=1000"
     try:
         resp = requests.get(url, timeout=15)
         resp.raise_for_status()
         data = resp.json()
-        df = pd.json_normalize(data)
-        
-        mlb_mask = df.get("question", "").astype(str).str.contains("MLB|baseball", case=False, na=False)
-        if "tags" in df.columns:
-            def has_mlb(tags):
-                if isinstance(tags, list):
-                    return any("MLB" in str(t).upper() or "baseball" in str(t).upper() for t in tags)
-                return "MLB" in str(tags).upper() or "baseball" in str(tags).upper()
-            mlb_mask |= df["tags"].apply(has_mlb)
-        df = df[mlb_mask]
-        
-        if df.empty:
+
+        snapshot_ts = datetime.now(timezone.utc).isoformat()
+        year = datetime.now(timezone.utc).year
+
+        rows = []
+        for market in data:
+            if _is_mlb(market):
+                rows.append({
+                    **market,
+                    "snapshot_timestamp": snapshot_ts,
+                    "snapshot_date": snapshot_ts[:10],
+                    "source": "polymarket",
+                })
+
+        if not rows:
             print("⚠️  Polymarket: no MLB markets")
             return None
-        
-        df["source"] = "Polymarket"
-        append_to_table(df, "raw_polymarket")
-        print(f"✅ Polymarket: appended {len(df)} MLB markets")
-        return df
+
+        _append_to_parquet(rows, year)
+        print(f"✅ Polymarket: {len(rows)} MLB markets appended")
+        return rows
     except Exception as e:
         print(f"⚠️  Polymarket skipped: {e}")
         return None
+
 
 if __name__ == "__main__":
     fetch_polymarket_mlb()

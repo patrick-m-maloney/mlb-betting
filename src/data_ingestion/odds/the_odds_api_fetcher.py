@@ -1,146 +1,113 @@
-# import sys
-# from pathlib import Path
-# sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+"""
+The Odds API fetcher.
+Appends to data/bronze/odds/the_odds_api_YYYY.parquet (one file per year).
+Each row = one outcome/book/market combination with a snapshot_timestamp.
+"""
 
-# from datetime import datetime, timezone
-# import pandas as pd
-# import requests
-# from config.settings import THE_ODDS_API_KEY, BASE_URL, RAW_ODDS_PATH
-# from src.database.db_manager import append_to_table
-
-# def normalize_odds_response(data: list, fetch_timestamp: datetime) -> pd.DataFrame:
-#     rows = []
-#     for game in data:
-#         game_id = game.get("id")
-#         commence_time = game.get("commence_time")
-#         home = game.get("home_team")
-#         away = game.get("away_team")
-        
-#         for book in game.get("bookmakers", []):
-#             bookmaker = book["key"]
-#             last_update = book["last_update"]
-            
-#             for market in book.get("markets", []):
-#                 mkt_key = market["key"]
-#                 for outcome in market.get("outcomes", []):
-#                     row = {
-#                         "fetch_timestamp": fetch_timestamp,
-#                         "game_id": game_id,
-#                         "commence_time": commence_time,
-#                         "home_team": home,
-#                         "away_team": away,
-#                         "bookmaker": bookmaker,
-#                         "market": mkt_key,
-#                         "outcome_name": outcome["name"],
-#                         "odds": outcome["price"],
-#                         "point": outcome.get("point"),
-#                         "last_update": last_update,
-#                     }
-#                     rows.append(row)
-#     return pd.DataFrame(rows)
-
-# def fetch_odds(sport_key: str, markets: str) -> pd.DataFrame | None:
-#     url = f"{BASE_URL}/sports/{sport_key}/odds"
-#     params = {
-#         "apiKey": THE_ODDS_API_KEY,
-#         "regions": "us",
-#         "markets": markets,
-#         "oddsFormat": "american",
-#     }
-#     resp = requests.get(url, params=params)
-#     if resp.status_code != 200:
-#         print(f"❌ Error {resp.status_code} for {sport_key}: {resp.text}")
-#         return None
-    
-#     print(f"✅ {sport_key} → Credits used: {resp.headers.get('x-requests-last')}")
-#     return normalize_odds_response(resp.json(), datetime.now(timezone.utc))
-
-# def fetch_futures() -> pd.DataFrame | None:
-#     """Dedicated futures (World Series, etc.). Only valid keys per current The Odds API."""
-#     futures_sports = [
-#         "baseball_mlb_world_series_winner",
-#         # AL/NL + division winners are NOT valid sport keys on The Odds API
-#         # (we can add player props / other futures later when they appear)
-#     ]
-#     all_futures = []
-#     for sport in futures_sports:
-#         try:
-#             df = fetch_odds(sport, "outrights")
-#             if df is not None and not df.empty:
-#                 all_futures.append(df)
-#                 print(f"✅ {sport} futures fetched")
-#         except Exception as e:
-#             print(f"⚠️  Skipped futures {sport}: {e}")
-#     if all_futures:
-#         return pd.concat(all_futures, ignore_index=True)
-#     return None
-
-# def save_snapshot(df: pd.DataFrame, subfolder: str = "games"):
-#     if df.empty:
-#         return
-#     date_str = df["fetch_timestamp"].iloc[0].strftime("%Y-%m-%d")
-#     path = RAW_ODDS_PATH / date_str / subfolder
-#     path.mkdir(parents=True, exist_ok=True)
-#     filename = path / f"odds_{datetime.now(timezone.utc).strftime('%H%M%S')}.parquet"
-#     df.to_parquet(filename, compression="snappy")
-#     print(f"✅ Saved {len(df)} rows → {filename}")
-
-# if __name__ == "__main__":
-#     print("🚀 Fetching MLB odds (robust preseason/in-season/futures mode)...")
-    
-#     # 1. Regular + Spring Training games
-#     for sport in ["baseball_mlb", "baseball_mlb_preseason"]:
-#         df_games = fetch_odds(sport, "h2h,spreads,totals")
-#         if df_games is not None:
-#             save_snapshot(df_games, "games")
-    
-#     # 2. Futures (your win totals / division futures)
-#     df_futures = fetch_futures()
-#     if df_futures is not None:
-#         save_snapshot(df_futures, "futures")
-    
-#     print("🎉 Run complete! Check data/raw/odds/")
-
-import requests
-import pandas as pd
-from datetime import datetime, timezone
+import sys
 from pathlib import Path
-from config.settings import THE_ODDS_API_KEY, RAW_ODDS_PATH  # keep for compatibility if needed
-from src.database.db_manager import append_to_table
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
+
+import json
+import requests
+import duckdb
+from datetime import datetime, timezone
+
+from config.settings import THE_ODDS_API_KEY, BASE_DIR
 
 BASE_URL = "https://api.the-odds-api.com/v4/sports"
+BRONZE_ODDS_DIR = BASE_DIR / "data" / "bronze" / "odds"
 
-def fetch_odds(sport_key: str = "baseball_mlb", markets: str = "h2h,spreads,totals") -> pd.DataFrame | None:
-    """Fetches ALL available odds (no commence_time filter — gets far-future + preseason)."""
+
+def _normalize_response(data: list, snapshot_ts: str) -> list[dict]:
+    """Flatten nested API response into one row per outcome/book/market."""
+    rows = []
+    for game in data:
+        base = {
+            "game_id":       game.get("id"),
+            "sport_key":     game.get("sport_key"),
+            "commence_time": game.get("commence_time"),
+            "home_team":     game.get("home_team"),
+            "away_team":     game.get("away_team"),
+            "snapshot_timestamp": snapshot_ts,
+            "snapshot_date": snapshot_ts[:10],
+            "source":        "the_odds_api",
+        }
+        for book in game.get("bookmakers", []):
+            for market in book.get("markets", []):
+                for outcome in market.get("outcomes", []):
+                    rows.append({
+                        **base,
+                        "bookmaker":    book["key"],
+                        "last_update":  book.get("last_update"),
+                        "market":       market["key"],
+                        "outcome_name": outcome.get("name"),
+                        "odds":         outcome.get("price"),
+                        "point":        outcome.get("point"),
+                    })
+    return rows
+
+
+def _append_to_parquet(rows: list[dict], year: int) -> None:
+    """Append rows to the per-year bronze parquet file via DuckDB."""
+    if not rows:
+        return
+
+    BRONZE_ODDS_DIR.mkdir(parents=True, exist_ok=True)
+    target = BRONZE_ODDS_DIR / f"the_odds_api_{year}.parquet"
+
+    con = duckdb.connect()
+    json_str = json.dumps(rows)
+    new_rows_sql = f"SELECT * FROM read_json_auto($${json_str}$$)"
+
+    if target.exists():
+        final_sql = f"""
+            SELECT * FROM read_parquet('{target}', union_by_name=true)
+            UNION ALL BY NAME
+            ({new_rows_sql})
+        """
+    else:
+        final_sql = new_rows_sql
+
+    con.execute(f"COPY ({final_sql}) TO '{target}' (FORMAT PARQUET, COMPRESSION ZSTD)")
+    n = con.execute(f"SELECT COUNT(*) FROM read_parquet('{target}')").fetchone()[0]
+    con.close()
+    print(f"   ✅ {target.name}: {n:,} total rows")
+
+
+def fetch_odds(sport_key: str = "baseball_mlb", markets: str = "h2h,spreads,totals") -> list[dict] | None:
+    """Fetch odds from The Odds API and append to bronze parquet."""
     url = f"{BASE_URL}/{sport_key}/odds"
     params = {
-        "apiKey": THE_ODDS_API_KEY,
-        "regions": "us",
-        "markets": markets,
-        "oddsFormat": "american"
+        "apiKey":      THE_ODDS_API_KEY,
+        "regions":     "us",
+        "markets":     markets,
+        "oddsFormat":  "american",
     }
     try:
         resp = requests.get(url, params=params, timeout=15)
         resp.raise_for_status()
         data = resp.json()
-        # Normalize to flat DF (same schema as before)
-        df = pd.json_normalize(data, sep="_")
-        df["source"] = "TheOddsAPI"
-        df = df.fillna("")
-        append_to_table(df, "raw_odds")
-        print(f"✅ The Odds API: fetched {len(df)} rows for {sport_key}")
-        return df
+        snapshot_ts = datetime.now(timezone.utc).isoformat()
+        rows = _normalize_response(data, snapshot_ts)
+        year = datetime.now(timezone.utc).year
+        _append_to_parquet(rows, year)
+        print(f"✅ The Odds API ({sport_key}): {len(rows)} rows appended")
+        remaining = resp.headers.get("x-requests-remaining", "?")
+        print(f"   API credits remaining: {remaining}")
+        return rows
     except Exception as e:
         print(f"⚠️  The Odds API skipped: {e}")
         return None
 
+
 def fetch_futures() -> None:
-    """Futures (World Series etc.) — ALL available."""
-    futures = ["baseball_mlb_world_series_winner"]
-    for sport in futures:
-        df = fetch_odds(sport, "outrights")
-        if df is not None:
+    """Fetch World Series and other outright futures."""
+    for sport in ["baseball_mlb_world_series_winner"]:
+        rows = fetch_odds(sport, "outrights")
+        if rows:
             print(f"✅ Futures fetched for {sport}")
+
 
 if __name__ == "__main__":
     fetch_odds()

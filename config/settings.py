@@ -33,8 +33,20 @@ RAW_DIR = DATA_DIR / "raw"          # legacy, keep for now
 REFERENCE_DIR = DATA_DIR / "reference"
 DB_PATH = DATA_DIR / "db" / "mlb_betting.duckdb"
 
+# Named subdirectory paths
+BRONZE_ODDS_DIR = BRONZE_DIR / "odds"
+BRONZE_LINEUPS_DIR = BRONZE_DIR / "lineups"
+SILVER_LINEUPS_DIR = SILVER_DIR / "lineups"
+SCHEDULES_DIR = DATA_DIR / "schedules"
+PLAYER_LOGS_DIR = DATA_DIR / "player_logs"
+GAME_BY_GAME_DIR = PLAYER_LOGS_DIR / "game_by_game"
+FANGRAPHS_DIR = PLAYER_LOGS_DIR / "fangraphs_leaderboards"
+SIMULATIONS_DIR = DATA_DIR / "simulations"
+
 # Create directories if missing
-for d in [BRONZE_DIR, SILVER_DIR, GOLD_DIR, RAW_DIR, REFERENCE_DIR, DB_PATH.parent]:
+for d in [BRONZE_DIR, SILVER_DIR, GOLD_DIR, RAW_DIR, REFERENCE_DIR, DB_PATH.parent,
+          BRONZE_ODDS_DIR, BRONZE_LINEUPS_DIR, SILVER_LINEUPS_DIR,
+          SCHEDULES_DIR, PLAYER_LOGS_DIR, GAME_BY_GAME_DIR, FANGRAPHS_DIR, SIMULATIONS_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
 RAW_ODDS_PATH.mkdir(parents=True, exist_ok=True)
