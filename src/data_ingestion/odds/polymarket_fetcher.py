@@ -9,6 +9,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
 import json
+import os
+import tempfile
 import requests
 import duckdb
 from datetime import datetime, timezone
@@ -39,23 +41,26 @@ def _append_to_parquet(rows: list[dict], year: int) -> None:
     BRONZE_ODDS_DIR.mkdir(parents=True, exist_ok=True)
     target = BRONZE_ODDS_DIR / f"polymarket_{year}.parquet"
 
-    con = duckdb.connect()
-    json_str = json.dumps(rows)
-    new_rows_sql = f"SELECT * FROM read_json_auto($${json_str}$$)"
-
-    if target.exists():
-        final_sql = f"""
-            SELECT * FROM read_parquet('{target}', union_by_name=true)
-            UNION ALL BY NAME
-            ({new_rows_sql})
-        """
-    else:
-        final_sql = new_rows_sql
-
-    con.execute(f"COPY ({final_sql}) TO '{target}' (FORMAT PARQUET, COMPRESSION ZSTD)")
-    n = con.execute(f"SELECT COUNT(*) FROM read_parquet('{target}')").fetchone()[0]
-    con.close()
-    print(f"   ✅ {target.name}: {n:,} total rows")
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".json")
+    try:
+        with os.fdopen(tmp_fd, "w") as f:
+            json.dump(rows, f)
+        con = duckdb.connect()
+        new_rows_sql = f"SELECT * FROM read_json_auto('{tmp_path}')"
+        if target.exists():
+            final_sql = f"""
+                SELECT * FROM read_parquet('{target}', union_by_name=true)
+                UNION ALL BY NAME
+                ({new_rows_sql})
+            """
+        else:
+            final_sql = new_rows_sql
+        con.execute(f"COPY ({final_sql}) TO '{target}' (FORMAT PARQUET, COMPRESSION ZSTD)")
+        n = con.execute(f"SELECT COUNT(*) FROM read_parquet('{target}')").fetchone()[0]
+        con.close()
+        print(f"   ✅ {target.name}: {n:,} total rows")
+    finally:
+        os.unlink(tmp_path)
 
 
 def fetch_polymarket_mlb() -> list[dict] | None:

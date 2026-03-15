@@ -1,0 +1,104 @@
+=== MLB / Pro Baseball Markets (KXMLB series) ===
+Generated: 2026-03-15 14:38:43
+
+Ticker          Title                                                        Yes      No       Volume       Closes
+-----------------------------------------------------------------------------------------------------------------------------
+
+NBA
+KXNBASPREAD-26MAR15UTASAC-SAC20 Sacramento wins by over 20.5 Points?        $0.53    $0.95    0            Mar 30 02:00
+KXNBA1HSPREAD-26MAR15UTASAC-UTA7 Will Utah win the 1H by over 7.5 points?   $0.00    $1.00    0            Mar 30 02:00
+KXNBAGAME-26MAR17INDNYK-NYK Indiana at New York Winner?                     $0.87    $0.14    0            Mar 31 23:30
+KXNBA1HTOTAL-26MAR15INDMIL-102 Indiana vs Milwaukee: First Half Total?      $0.00    $1.00    0            Mar 29 19:30
+KXNBAAST-26MAR15INDMIL-MILMTURNER3-8 Myles Turner: 8+ assists               $0.00    $1.00    0            Mar 29 19:30
+KXNBABLK-26MAR15DALCLE-CLEEMOBLEY4-3 Evan Mobley: 3+ blocks                 $0.00    $1.00    0            Mar 29 19:30
+KXNBASTL-26MAR15DALCLE-DALCFLAGG32-3 Cooper Flagg: 3+ steals                $0.00    $1.00    0            Mar 29 19:30
+
+NHL
+KXNHLAST-26MAR15STLWPG-WPGMSCHEIFELE55-3 Mark Scheifele: 3+ assists                                   $1.00    $0.55    0            Mar 29 19:00
+KXNHLFIRSTGOAL-26MAR15STLWPG-WPGMSCHEIFELE55 Mark Scheifele: First Goalscorer                             $0.00    $1.00    0            Mar 29 19:00
+KXNHLGOAL-26MAR15STLWPG-WPGMSCHEIFELE55-3 Mark Scheifele: 3+ goals                                     $1.00    $0.55    0            Mar 29 19:00
+KXNHLPTS-26MAR15STLWPG-WPGMSCHEIFELE55-3 Mark Scheifele: 3+ points                                    $0.00    $1.00    0            Mar 29 19:00
+KXNHLGAME-26MAR17BUFVGK-VGK Buffalo at Vegas Winner?                                     $0.00    $1.00    0            Apr 01 02:00
+KXNHLSPREAD-26MAR17BUFVGK-VGK2 Vegas wins by over 2.5 goals?                                $0.00    $1.00    0            Apr 01 02:00
+KXNHLTOTAL-26MAR17BUFVGK-8 Buffalo vs Vegas: Total Goals                                $0.00    $1.00    0            Apr 01 02:00
+
+World Baseball Classic
+KXWBCF5SPREAD-26MAR152000USADOM-USA2 USA wins first 5 innings by over 1.5 runs?                   $0.00    $1.00    0            Mar 18 00:00
+KXWBCF5SPREAD-26MAR152000USADOM-DOM2 Dominican Republic wins first 5 innings by over 1.5 runs?    $0.00    $1.00    0            Mar 18 00:00
+KXWBCF5TOTAL-26MAR152000USADOM-1 USA vs Dominican Republic first 5 innings runs?              $0.00    $1.00    0            Mar 18 00:00
+KXWBCGAME-26MAR152000USADOM-DOM USA vs Dominican Republic Winner?                            $0.47    $0.55    39,943       Mar 18 00:00
+KXWBCRFI-26MAR152000USADOM USA vs Dominican Republic First Inning Run?                  $0.00    $1.00    0            Mar 18 00:00
+KXWBCSPREAD-26MAR152000USADOM-USA3 USA wins by over 2.5 runs?                                   $0.00    $1.00    0            Mar 18 00:00
+KXWBCTOTAL-26MAR152000USADOM-10 USA vs Dominican Republic Total Runs?                        $1.00    $1.00    0            Mar 18 00:00
+KXWBCF5-26MAR152000USADOM-TIE USA vs Dominican Republic first 5 innings winner?            $0.00    $1.00    0            Mar 18 00:00
+
+MLB
+Single Game
+    KXMLBSTGAME-26MAR171305ATLBOS-BOS Atlanta vs Boston Winner?                                    $0.00    $1.00    0            Mar 19 17:05
+Win Totals
+    KXMLBWINS-WSH-26-T60 Will Washington win at least 60 games this season?           $0.00    $1.00    0            Nov 08 04:00
+    KXMLBWINS-WSH-26-T55 Will Washington win at least 55 games this season?           $0.00    $1.00    0            Nov 08 04:00
+
+KXMLBNLCENT-26-CHC Will Chicago C be the 2026 NL Central Division Winner        $0.00    $1.00    0            Nov 15 04:00
+KXMLBPLAYOFFS-26-NYM Pro Baseball Playoff Qualifiers                              $0.00    $1.00    0            Nov 01 15:00
+KXMLBWINS-ATH-26-T95 Will Oakland win at least 95 games this season?              $0.00    $1.00    0            Nov 08 04:00
+KXMLBWINS-ATH-26-T90 Will Oakland win at least 90 games this season?              $0.00    $1.00    0            Nov 08 04:00
+KXMLBWINS-LAD-26-T105 Will Los Angeles D win at least 105 games this season?       $0.00    $1.00    0            Nov 08 04:00
+KXMLB-26-ATL    Will Atlanta win the 2026 Pro Baseball Championship?         $0.97    $0.82    4            Oct 31 04:00
+KXMLBAL-26-ATH  Will A's win the 2026 Pro Baseball American League Champi    $0.00    $1.00    0            Oct 31 04:00
+
+KXMLBBESTRECORD-26-BOS Will Boston have the best record in Pro Baseball in the 2    $0.00    $1.00    0            Oct 29 14:004
+KXMLBBESTRECORD-26-CHC Will Chicago C have the best record in Pro Baseball in th    $0.00    $1.00    0            Oct 29 14:00
+KXMLBWORSTRECORD-26-ATH Will A's have the worst record in Pro Baseball in the 202    $0.00    $1.00    0            Oct 29 14:00
+KXMLBWSTREAK-26-ATL Will Atlanta have the longest winning streak in the 2026     $0.00    $1.00    0            Oct 15 14:00
+
+KXMLBSTATCOUNT-263030-9 Will all hitters combined record 9+ 30+ home runs and 30+    $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTATCOUNT-26ITPHR-2 Will all hitters combined record 2+ inside-the-park home     $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTATCOUNT-26ITPHR-1 Will all hitters combined record 1+ inside-the-park home     $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTATCOUNT-26CYCLE-AH-3 Will all hitters combined record 3+ cycles?                  $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTATCOUNT-26CYCLE-AH-2 Will all hitters combined record 2+ cycles?                  $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTATCOUNT-26CYCLE-AH-1 Will all hitters combined record 1+ cycles?                  $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTATCOUNT-263HR-AH-6 Will all hitters combined record 6+ instances of a player    $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTATCOUNT-263HR-AH-5 Will all hitters combined record 5+ instances of a player    $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTATCOUNT-263HR-AH-4 Will all hitters combined record 4+ instances of a player    $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTATCOUNT-26IMMACULATE-AP-3 Will all pitchers combined record 3+ immaculate innings?     $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTATCOUNT-26IMMACULATE-AP-2 Will all pitchers combined record 2+ immaculate innings?     $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTATCOUNT-26IMMACULATE-AP-1 Will all pitchers combined record 1+ immaculate innings?     $0.00    $1.00    0            Dec 03 15:00
+
+KXMLBSTAT-265050-AH Will any hitter record 50+ home runs and 50+ steals?         $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTAT-26GS2-AH Will any hitter record 2+ grand slams in any game?           $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTAT-26HR4-AH Will any hitter record 4+ home runs in a game?               $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTAT-26K20-AP Will any pitcher record 20+ strikeouts in a single game?     $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTAT-26NOHIT-AP Will any pitcher record a no hitter?                         $0.00    $1.00    0            Dec 03 15:00
+KXMLBSTAT-26W20-AP Will any pitcher record 20+ wins?                            $0.00    $1.00    0            Dec 03 15:00
+
+KXMLBALCPOTY-26-TIE Will Tie/Co-Winners win AL CPOTY?                            $0.00    $1.00    0            Dec 08 15:00
+KXMLBALCY-26-BBEL Will Brayan Bello win AL Cy Young?                           $0.00    $1.00    0            Dec 08 15:00
+KXMLBALHAARON-26-AKIR Will Alejandro Kirk win AL Hank Aaron Award?                 $0.00    $1.00    0            Dec 08 15:00
+KXMLBALMOTY-26-KCAS Will Kevin Cash win AL MOTY?                                 $0.00    $1.00    0            Dec 08 15:00
+KXMLBALMVP-26-AJUD Will Aaron Judge win AL MVP?                                 $0.00    $1.00    0            Dec 08 15:00
+KXMLBALRELOTY-26-BABR Will Bryan Abreu win AL Reliever of the Year?                $0.00    $1.00    0            Dec 08 15:00
+KXMLBALROTY-26-BMAT Will Brice Matthews win AL ROTY?                             $0.00    $1.00    0            Dec 08 15:00
+KXMLBNLCPOTY-26-ETOV Will Ezequiel Tovar win NL CPOTY?                            $0.00    $1.00    0            Dec 08 15:00
+KXMLBNLCY-26-BCHA Will Bubba Chandler win NL Cy Young?                         $0.00    $1.00    0            Dec 08 15:00
+KXMLBNLHAARON-26-ABRE Will Alex Bregman win NL Hank Aaron Award?                   $0.00    $1.00    0            Dec 08 15:00
+KXMLBNLMOTY-26-CCOU Will Craig Counsell win NL MOTY?                             $0.00    $1.00    0            Dec 08 15:00
+KXMLBNLMVP-26-BTUR Will Brice Turang win NL MVP?                                $0.00    $1.00    0            Dec 08 15:00
+KXMLBNLMVP-26-BHAR Will Bryce Harper win NL MVP?                                $0.00    $1.00    0            Dec 08 15:00
+KXMLBNLMVP-26-ABRE Will Alex Bregman win NL MVP?                                $0.00    $1.00    0            Dec 08 15:00
+KXMLBNLRELOTY-26-AURI Will Abner Uribe win NL Reliever of the Year?                $0.00    $1.00    0            Dec 08 15:00
+KXMLBNLROTY-26-AFRE Will Alex Freeland win NL ROTY?                              $0.00    $1.00    0            Dec 08 15:00
+KXMLBALCPOTY-26-ASAN Will Anthony Santander win AL CPOTY?                         $0.00    $1.00    0            Dec 08 15:00
+KXMLBALCPOTY-26-ARUT Will Adley Rutschman win AL CPOTY?                           $0.00    $1.00    0            Dec 08 15:00
+
+KXMLBALCENT-26-DET Will Detroit be the 2026 AL Central Division Winner          $0.00    $1.00    0            Nov 15 04:00
+KXMLBALEAST-26-BAL Will Baltimore be the 2026 AL East Division Winner           $0.00    $1.00    0            Nov 15 04:00
+KXMLBALWEST-26-ATH Will A's be the 2026 AL West Division Winner                 $0.00    $1.00    0            Nov 15 04:00
+KXMLBNL-26-WSH  Will Washington win the 2026 Pro Baseball National League    $0.00    $1.00    0            Oct 31 04:00
+KXMLBNL-26-ATL  Will Atlanta win the 2026 Pro Baseball National League Ch    $0.00    $1.00    0            Oct 31 04:00
+KXMLBNLEAST-26-ATL Will Atlanta be the 2026 NL East Division Winner             $0.00    $1.00    0            Nov 15 04:00
+KXMLBNLWEST-26-COL Will Colorado be the 2026 NL West Division Winner            $0.00    $1.00    0            Nov 15 04:00
+KXMLBWORLD-26-AU World Baseball Classic Winner?                               $1.00    $0.82    20,345       Feb 28 15:00
+KXMLBWORLD-26-USA World Baseball Classic Winner?                               $0.40    $0.61    1,116,545    Feb 28 15:00
+KXMLBPS-24DETCLE-DET Will Detroit T make the ALDS?                                $0.98    $0.84    16,223       Oct 09 19:08
+
