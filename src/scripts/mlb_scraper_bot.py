@@ -15,10 +15,10 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 # Existing + new prediction-market fetchers
 from src.data_ingestion.lineups import fetch_lineups, save_lineups
-from src.data_ingestion.the_odds_api_fetcher import fetch_odds, fetch_futures, save_snapshot
-from src.data_ingestion.rundown_fetcher import fetch_rundown_mlb
-from src.data_ingestion.kalshi_fetcher import fetch_kalshi_mlb
-from src.data_ingestion.polymarket_fetcher import fetch_polymarket_mlb
+from src.data_ingestion.odds.the_odds_api_fetcher import fetch_odds, fetch_futures
+from src.data_ingestion.odds.rundown_fetcher import fetch_rundown_mlb
+from src.data_ingestion.odds.kalshi_fetcher import fetch_kalshi_mlb
+from src.data_ingestion.odds.polymarket_fetcher import fetch_polymarket_mlb
 
 scheduler = BackgroundScheduler()
 current_interval = 30
@@ -34,9 +34,7 @@ def scrape_all():
         print("✅ Lineups saved (Rotowire)")
 
     # 2. The Odds API
-    df_games = fetch_odds(sport_key="baseball_mlb", markets="h2h,spreads,totals")
-    if df_games is not None:
-        save_snapshot(df_games, "games")
+    fetch_odds(sport_key="baseball_mlb", markets="h2h,spreads,totals")
     fetch_futures()
 
     # 3. TheRundown (skipped until activated)

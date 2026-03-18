@@ -151,7 +151,13 @@ def _append_to_parquet(rows: list[dict], year: int) -> None:
         with os.fdopen(tmp_fd, "w") as f:
             json.dump(rows, f, default=str)
         con = duckdb.connect()
-        new_rows_sql = f"SELECT * FROM read_json_auto('{tmp_path}')"
+        new_rows_sql = f"""
+            SELECT * REPLACE (
+                TRY_CAST(snapshot_timestamp AS TIMESTAMPTZ) AS snapshot_timestamp,
+                TRY_CAST(snapshot_date AS DATE) AS snapshot_date
+            )
+            FROM read_json_auto('{tmp_path}')
+        """
         if target.exists():
             final_sql = f"""
                 SELECT * FROM read_parquet('{target}', union_by_name=true)

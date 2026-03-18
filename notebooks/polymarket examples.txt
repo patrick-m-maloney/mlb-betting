@@ -1,0 +1,33 @@
+POLYMARKET MLB MARKET RULES
+============================
+
+MARKETS WE WANT:
+1. Game Moneylines
+   Format: "{Away Team} vs. {Home Team}"
+   Example: "Minnesota Twins vs. Boston Red Sox"
+   
+2. Season Win Totals
+   Format: "Will the {Team} win more than {X} games in the 20XX..."
+   Example: "Will the New York Yankees win more than 86.5 games in the 2026..."
+
+MARKETS WE DO NOT WANT (ignore these):
+- Spreads: any question starting with "Spread:"
+- Over/Unders: any question containing "O/U"
+- World Series futures: "Will the X win the 2026 World Series?"
+- League/division champions: "win the 2026 AL/NL..."
+- Division titles: "win the 2026 AL/NL East/West/Central title"
+- Award markets: MVP, Cy Young, Hank Aaron Award
+- WBC markets: "World Baseball Classic"
+- Non-MLB sports: NHL, NBA, AHL etc.
+- Single player props: "Will X hit the most..."
+
+FIELDS NEEDED PER MARKET:
+- question (title)
+- condition_id
+- yes_token_id, no_token_id (from clobTokenIds[0] and [1])
+- yes_price, no_price (live from CLOB API)
+- volume
+- end_date
+- market_type: 'game_winner' or 'win_total'
+- home_team, away_team (parsed from question)
+- win_total_threshold (for win total markets only, e.g. 86.5)

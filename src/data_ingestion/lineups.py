@@ -223,19 +223,21 @@ def save_lineups(df: pd.DataFrame):
 
     # Silver: deduplicated by game_date + teams, keep latest fetch_timestamp
     if silver_target.exists():
-        silver_sql = f"""
-            SELECT * QUALIFY row_number() OVER (
-                PARTITION BY game_date, away_team, home_team
-                ORDER BY fetch_timestamp DESC
-            ) = 1
-            FROM (
-                SELECT * FROM read_parquet('{silver_target}', union_by_name=true)
-                UNION ALL BY NAME
-                SELECT * FROM _df
-            )
+        combined = f"""
+            SELECT * FROM read_parquet('{silver_target}', union_by_name=true)
+            UNION ALL BY NAME
+            SELECT * FROM _df
         """
     else:
-        silver_sql = "SELECT * FROM _df"
+        combined = "SELECT * FROM _df"
+    silver_sql = f"""
+        SELECT *
+        FROM ({combined})
+        QUALIFY row_number() OVER (
+            PARTITION BY game_date, away_team, home_team
+            ORDER BY fetch_timestamp DESC
+        ) = 1
+    """
     con.execute(f"COPY ({silver_sql}) TO '{silver_target}' (FORMAT PARQUET, COMPRESSION ZSTD)")
     n_silver = con.execute(f"SELECT COUNT(*) FROM read_parquet('{silver_target}')").fetchone()[0]
     print(f"✅ Silver lineups → {silver_target.name}: {n_silver:,} total rows")

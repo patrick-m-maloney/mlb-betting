@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MLB betting engine that projects per-game RS/RA using player-specific data (KNN historical comps + lineup-specific wOBA), runs Monte Carlo simulations, and compares to live sportsbook odds for +EV identification. Data flows: external APIs → timestamped Parquet snapshots → DuckDB query layer → Monte Carlo simulation → edge detection.
 
+**Planned: Cross-market arbitrage strategy.** When odds across any combination of sources (sportsbooks via The Odds API, Kalshi, Polymarket) imply a guaranteed profit regardless of outcome — i.e. the sum of implied probabilities across all outcomes is less than 1.0 — flag it and execute the trade. This should be a dedicated module that runs on every scrape cycle, compares the same event across all sources, and alerts/acts when a true arb exists. The key challenge is normalizing different price formats (American odds, Kalshi yes/no cents, Polymarket probability) into a common implied probability so they can be compared directly.
+
 ## Rules You Must Always Follow
 
 - **NEVER delete any files under any circumstances.** If you think a file should be deleted, list it in your response and let the user decide.
@@ -108,12 +110,24 @@ All layers queried via DuckDB views registered in db_manager.py.
 
 **DuckDB view layer** (`src/database/db_manager.py`): `get_connection()` calls `register_views()` on every open, which creates `CREATE OR REPLACE VIEW` over each Parquet glob pattern. Views silently skip missing data. Use `get_views()` to inspect row counts. All new code should use `get_connection()` rather than raw `duckdb.connect()`.
 
-**All fetchers use DuckDB + stdlib only — no pandas.** The append pattern:
+**All fetchers use DuckDB + stdlib only — no pandas.** The append pattern writes rows to a temp JSON file then reads via `read_json_auto()` — do NOT use inline `$$...$$` dollar-quoting (DuckDB treats it as a file glob, not a string literal):
 ```python
-json_str = json.dumps(rows)
-new_rows_sql = f"SELECT * FROM read_json_auto($${json_str}$$)"
+tmp_fd, tmp_path = tempfile.mkstemp(suffix=".json")
+with os.fdopen(tmp_fd, "w") as f:
+    json.dump(rows, f)
+new_rows_sql = f"SELECT * FROM read_json_auto('{tmp_path}')"
 # if target exists: UNION ALL BY NAME with existing parquet, then COPY TO
+# always os.unlink(tmp_path) in a finally block
 ```
+
+**Kalshi fetcher** (`src/data_ingestion/odds/kalshi_fetcher.py`):
+- SDK: `kalshi_python_sync` (`KalshiClient` + `Configuration`)
+- Production API: `https://api.elections.kalshi.com/trade-api/v2`
+- **No auth required** for public market data reads (auth only needed for trading)
+- Series fetched: `KXMLBSTGAME` (game winner markets, `status="open"`) and `KXMLBWINS` (season win totals, no status filter — `unopened` pre-season)
+- Output: `data/bronze/odds/kalshi_YYYY.parquet`
+- `market_type` column: `'game_winner'` or `'win_total'`
+- Ticker parsing uses `winner_side` to resolve 2- vs 3-letter team codes (e.g. SD, SF, TB, AZ, KC are 2-letter; most others 3-letter)
 
 ### Key Classes
 
@@ -127,10 +141,15 @@ new_rows_sql = f"SELECT * FROM read_json_auto($${json_str}$$)"
 
 **`append_to_table()`** (`src/database/db_manager.py`): Schema-evolving DuckDB append for small reference tables. For odds/lineups, use direct Parquet file appends instead (views pick up new data automatically).
 
+### Future Work / Infrastructure
+
+- **Cloud hosting**: deploy `mlb_scraper_bot.py` to Railway (~$5/month)
+  - Connects directly to GitHub repo
+  - Needs: `Procfile` or `railway.toml` at repo root, all API keys set as Railway env vars
+  - Docs: railway.app
+
 ### Known Issues
 
-- `src/scripts/mlb_scraper_bot.py` has broken imports — references `src.data_ingestion.the_odds_api_fetcher` but file was moved to `src.data_ingestion.odds.the_odds_api_fetcher`
-- Missing `__init__.py` in: `src/data_ingestion/odds/`, `src/database/`, `src/models/`, `src/scripts/`
 - `data/mlb_betting.db` at project root is a stale orphan — real DB is `data/db/mlb_betting.duckdb`
 - `load_linear_weights()` in `player_fingerprinting.py` is defined inside the `PlayerComps` class without `self` (should be `@staticmethod` or extracted)
 - wOBA calculation is duplicated in `monte_carlo.py`, `player_fingerprinting.py`, and `playground.ipynb`

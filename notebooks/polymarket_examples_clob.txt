@@ -1,0 +1,506 @@
+Polymarket — MLB Market Explorer (Gamma Events API)
+Generated: 2026-03-16 23:41 UTC
+
+Total events fetched:   42
+Game events:            24 (52 markets)
+Win total events:       1 (30 markets)
+
+================================================================================
+RAW JSON — first game event:
+================================================================================
+{
+  "id": "242648",
+  "ticker": "mlb-tb-bos-2026-03-07",
+  "slug": "mlb-tb-bos-2026-03-07",
+  "title": "Tampa Bay Rays vs. Boston Red Sox",
+  "description": "This is a market on the MLB baseball game between Tampa Bay Rays and Boston Red Sox, scheduled for March 7 at 1:05PM ET. \nThis market will resolve to \"Tampa Bay Rays\" if the Tampa Bay Rays win the game.\nThis market will resolve to \"Boston Red Sox\" if the Boston Red Sox win the game.\nIf the game is postponed, this market will remain open until the game has been completed. \nIf the game is canceled entirely, with no make-up game, or ends in a tie, this market will resolve 50-50.\nThe primary resolution source for this market is the official statistics of the event as recognized by the governing body or event organizers.\nHowever, if the governing body or event organizers have not published final match statistics within 24 hours after the event's conclusion, a consensus of credible reporting may be used instead.",
+  "resolutionSource": "https://www.mlb.com/",
+  "startDate": "2026-03-03T02:45:35.212369Z",
+  "creationDate": "2026-03-07T18:05:00Z",
+  "endDate": "2026-03-14T17:05:00Z",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/MLB.jpg",
+  "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/MLB.jpg",
+  "active": true,
+  "closed": false,
+  "archived": false,
+  "new": false,
+  "featured": false,
+  "restricted": true,
+  "liquidity": 37.4505,
+  "openInterest": 0,
+  "createdAt": "2026-03-03T02:42:32.950807Z",
+  "updatedAt": "2026-03-16T23:36:29.548734Z",
+  "competitive": 0.08994378513429108,
+  "enableOrderBook": true,
+  "liquidityClob": 37.4505,
+  "negRisk": false,
+  "commentCount": 0,
+  "markets": [
+    {
+      "id": "1488400",
+      "question": "Tampa Bay Rays vs. Boston Red Sox",
+      "conditionId": "0xe29c0f85abcfb85281edb24ac50184f0ca0c17839807456f9ad91da0a4af56c8",
+      "slug": "mlb-tb-bos-2026-03-07",
+      "resolutionSource": "https://www.mlb.com/",
+      "endDate": "2026-03-14T17:05:00Z",
+      "startDate": "2026-03-03T02:45:09.958865Z",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/MLB.jpg",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/MLB.jpg",
+      "description": "This is a market on the MLB baseball game between Tampa Bay Rays and Boston Red Sox, scheduled for March 7 at 1:05PM ET. \nThis market will resolve to \"Tampa Bay Rays\" if the Tampa Bay Rays win the game.\nThis market will resolve to \"Boston Red Sox\" if the Boston Red Sox win the game.\nIf the game is postponed, this market will remain open until the game has been completed. \nIf the game is canceled entirely, with no make-up game, or ends in a tie, this market will resolve 50-50.\nThe primary resolution source for this market is the official statistics of the event as recognized by the governing body or event organizers.\nHowever, if the governing body or event organizers have not published final match statistics within 24 hours after the event's conclusion, a consensus of credible reporting may be used instead.",
+      "outcomes": "[\"Tampa Bay Rays\", \"Boston Red Sox\"]",
+      "outcomePrices": "[\"0\", \"1\"]",
+      "active": true,
+      "closed": true,
+      "marketMakerAddress": "",
+      "createdAt": "2026-03-03T02:42:33.164631Z",
+      "updatedAt": "2026-03-14T05:39:42.837909Z",
+      "closedTime": "2026-03-13 09:05:29+00",
+      "new": false,
+      "featured": false,
+      "submitted_by": "0x91430CaD2d3975766499717fA0D66A78D814E5c5",
+      "archived": false,
+      "resolvedBy": "0x65070BE91477460D8A7AeEb94ef92fe056C2f2A7",
+      "restricted": true,
+      "groupItemThreshold": "0",
+      "questionID": "0x27e5233bfb8a1e7e8c24eeb350fed6afa445dc757f1fa650f44f3463b281ae25",
+      "umaEndDate": "2026-03-13T09:05:29Z",
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.001,
+      "orderMinSize": 5,
+      "umaResolutionStatus": "resolved",
+      "endDateIso": "2026-03-14",
+      "startDateIso": "2026-03-03",
+      "hasReviewedDates": true,
+      "gameStartTime": "2026-03-07 18:05:00+00",
+      "secondsDelay": 3,
+      "clobTokenIds": "[\"99393155424871865065755177233065937769923423327261350031000345054173944779664\", \"25658579070292704833648244331295102791646290627752184341478066715811924492347\"]",
+      "umaBond": "500",
+      "umaReward": "2",
+      "customLiveness": 0,
+      "acceptingOrders": false,
+      "negRisk": false,
+      "negRiskRequestID": "",
+      "ready": false,
+      "funded": false,
+      "acceptingOrdersTimestamp": "2026-03-03T02:44:03Z",
+      "cyom": false,
+      "pagerDutyNotificationEnabled": false,
+      "approved": true,
+      "rewardsMinSize": 50,
+      "rewardsMaxSpread": 4.5,
+      "spread": 0.001,
+      "automaticallyResolved": true,
+      "lastTradePrice": 0.001,
+      "bestAsk": 0.001,
+      "automaticallyActive": true,
+      "clearBookOnStart": true,
+      "manualActivation": false,
+      "negRiskOther": false,
+      "sportsMarketType": "moneyline",
+      "umaResolutionStatuses": "[\"proposed\"]",
+      "pendingDeployment": false,
+      "deploying": false,
+      "deployingTimestamp": "2026-03-03T02:42:49.167289Z",
+      "rfqEnabled": false,
+      "holdingRewardsEnabled": false,
+      "feesEnabled": false,
+      "requiresTranslation": false,
+      "feeType": null
+    },
+    {
+      "id": "1524667",
+      "question": "Spread: Boston Red Sox (-1.5)",
+      "conditionId": "0xd5f3009a03de160893cb6b68c8ae3b76df28c3878bb74a9ad16cc084fb3346f9",
+      "slug": "mlb-tb-bos-2026-03-07-spread-home-1pt5",
+      "resolutionSource": "https://www.mlb.com/",
+      "endDate": "2026-03-07T18:05:00Z",
+      "liquidity": "12.1115",
+      "startDate": "2026-03-07T16:07:50.947521Z",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/MLB.jpg",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/MLB.jpg",
+      "description": "In the upcoming MLB game, scheduled for March 7 at 1:05 PM ET:\n\nThis market will resolve to \"Boston Red Sox\" if the Boston Red Sox win the game by 2 or more runs.\n\nOtherwise, this market will resolve to \"Tampa Bay Rays\". If the game ends in a tie, this market will resolve to \"Tampa Bay Rays\".\n\nIf the game is postponed, this market will remain open until the game has been completed. If the game is canceled entirely, with no make-up game, this market will resolve 50-50.",
+      "outcomes": "[\"Boston Red Sox\", \"Tampa Bay Rays\"]",
+      "outcomePrices": "[\"0.505\", \"0.495\"]",
+      "active": true,
+      "closed": false,
+      "marketMakerAddress": "",
+      "createdAt": "2026-03-07T16:05:21.288942Z",
+      "updatedAt": "2026-03-16T23:36:11.22568Z",
+      "new": false,
+      "featured": false,
+      "submitted_by": "0x91430CaD2d3975766499717fA0D66A78D814E5c5",
+      "archived": false,
+      "resolvedBy": "0x65070BE91477460D8A7AeEb94ef92fe056C2f2A7",
+      "restricted": true,
+      "groupItemTitle": "Spread -1.5",
+      "groupItemThreshold": "1",
+      "questionID": "0x8a5afec84f580eef7823a8054baf80a273279f058051b027d7c79e89dccde351",
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.01,
+      "orderMinSize": 5,
+      "liquidityNum": 12.1115,
+      "endDateIso": "2026-03-07",
+      "startDateIso": "2026-03-07",
+      "hasReviewedDates": true,
+      "gameStartTime": "2026-03-07 18:05:00+00",
+      "secondsDelay": 3,
+      "clobTokenIds": "[\"22374434949945152763126755700053355605180779763175405281826634747968711336244\", \"100322806432931561258900744684351580156996998627634154338539623804581313039016\"]",
+      "umaBond": "500",
+      "umaReward": "2",
+      "liquidityClob": 12.1115,
+      "customLiveness": 0,
+      "acceptingOrders": true,
+      "negRisk": false,
+      "negRiskRequestID": "",
+      "ready": false,
+      "funded": false,
+      "acceptingOrdersTimestamp": "2026-03-07T16:06:45Z",
+      "cyom": false,
+      "competitive": 0.02999925001874953,
+      "pagerDutyNotificationEnabled": false,
+      "approved": true,
+      "rewardsMinSize": 50,
+      "rewardsMaxSpread": 4.5,
+      "spread": 0.97,
+      "bestBid": 0.02,
+      "bestAsk": 0.99,
+      "automaticallyActive": true,
+      "clearBookOnStart": true,
+      "manualActivation": false,
+      "negRiskOther": false,
+      "sportsMarketType": "spreads",
+      "line": -1.5,
+      "umaResolutionStatuses": "[]",
+      "pendingDeployment": false,
+      "deploying": false,
+      "deployingTimestamp": "2026-03-07T16:05:29.600792Z",
+      "rfqEnabled": false,
+      "holdingRewardsEnabled": false,
+      "feesEnabled": false,
+      "requiresTranslation": false,
+      "feeType": null
+    },
+    {
+      "id": "1524668",
+      "question": "Tampa Bay Rays vs. Boston Red Sox: O/U 8.5",
+      "conditionId": "0xe1dab0967223d08e69a3b0a5ad9945194f9e18e79aff72683e128cbb87bca911",
+      "slug": "mlb-tb-bos-2026-03-07-total-8pt5",
+      "resolutionSource": "https://www.mlb.com/",
+      "endDate": "2026-03-07T18:05:00Z",
+      "liquidity": "12.5022",
+      "startDate": "2026-03-07T16:07:56.994128Z",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/MLB.jpg",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/MLB.jpg",
+      "description": "In the upcoming MLB game, scheduled for March 7 at 1:05 PM ET:\n\nThis market will resolve to \"Over\" if the Tampa Bay Rays and Boston Red Sox combine to score 9 or more runs in this game.\n\nIf the combined total is less than 9, this market will resolve to \"Under\".\n\nIf the game is postponed, this market will remain open until the game has been completed. If the game is canceled entirely, with no make-up game, this market will resolve 50-50.",
+      "outcomes": "[\"Over\", \"Under\"]",
+      "outcomePrices": "[\"0.515\", \"0.485\"]",
+      "active": true,
+      "closed": false,
+      "marketMakerAddress": "",
+      "createdAt": "2026-03-07T16:05:21.391604Z",
+      "updatedAt": "2026-03-16T23:36:08.086028Z",
+      "new": false,
+      "featured": false,
+      "submitted_by": "0x91430CaD2d3975766499717fA0D66A78D814E5c5",
+      "archived": false,
+      "resolvedBy": "0x65070BE91477460D8A7AeEb94ef92fe056C2f2A7",
+      "restricted": true,
+      "groupItemTitle": "O/U 8.5",
+      "groupItemThreshold": "2",
+      "questionID": "0xaf2276734782c40ecda88e265d497ee86083ced7424920e5d358f9702c4a91a2",
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.01,
+      "orderMinSize": 5,
+      "liquidityNum": 12.5022,
+      "endDateIso": "2026-03-07",
+      "startDateIso": "2026-03-07",
+      "hasReviewedDates": true,
+      "gameStartTime": "2026-03-07 18:05:00+00",
+      "secondsDelay": 3,
+      "clobTokenIds": "[\"25586426061093162123586517576997136599841982632950045567821281052232293552909\", \"17010996959708187562101940418460201512902489833665398020466923292766943073602\"]",
+      "umaBond": "500",
+      "umaReward": "2",
+      "liquidityClob": 12.5022,
+      "customLiveness": 0,
+      "acceptingOrders": true,
+      "negRisk": false,
+      "negRiskRequestID": "",
+      "ready": false,
+      "funded": false,
+      "acceptingOrdersTimestamp": "2026-03-07T16:06:51Z",
+      "cyom": false,
+      "competitive": 0.06998425354295283,
+      "pagerDutyNotificationEnabled": false,
+      "approved": true,
+      "rewardsMinSize": 50,
+      "rewardsMaxSpread": 4.5,
+      "spread": 0.93,
+      "bestBid": 0.05,
+      "bestAsk": 0.98,
+      "automaticallyActive": true,
+      "clearBookOnStart": true,
+      "manualActivation": false,
+      "negRiskOther": false,
+      "sportsMarketType": "totals",
+      "line": 8.5,
+      "umaResolutionStatuses": "[]",
+      "pendingDeployment": false,
+      "deploying": false,
+      "deployingTimestamp": "2026-03-07T16:05:29.602222Z",
+      "rfqEnabled": false,
+      "holdingRewardsEnabled": false,
+      "feesEnabled": false,
+      "requiresTranslation": false,
+      "feeType": null
+    },
+    {
+      "id": "1524673",
+      "question": "Tampa Bay Rays vs. Boston Red Sox: O/U 7.5",
+      "conditionId": "0x15e4696d20da19a2cdf3fb6fc3e5eb80cafabaf38d418a8340ec933afdd9939c",
+      "slug": "mlb-tb-bos-2026-03-07-total-7pt5",
+      "resolutionSource": "https://www.mlb.com/",
+      "endDate": "2026-03-07T18:05:00Z",
+      "liquidity": "12.8368",
+      "startDate": "2026-03-07T16:07:50.694901Z",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/MLB.jpg",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/MLB.jpg",
+      "description": "In the upcoming MLB game, scheduled for March 7 at 1:05 PM ET:\n\nThis market will resolve to \"Over\" if the Tampa Bay Rays and Boston Red Sox combine to score 8 or more runs in this game.\n\nIf the combined total is less than 8, this market will resolve to \"Under\".\n\nIf the game is postponed, this market will remain open until the game has been completed. If the game is canceled entirely, with no make-up game, this market will resolve 50-50.",
+      "outcomes": "[\"Over\", \"Under\"]",
+      "outcomePrices": "[\"0.525\", \"0.475\"]",
+      "active": true,
+      "closed": false,
+      "marketMakerAddress": "",
+      "createdAt": "2026-03-07T16:05:23.600003Z",
+      "updatedAt": "2026-03-16T23:35:51.809902Z",
+      "new": false,
+      "featured": false,
+      "submitted_by": "0x91430CaD2d3975766499717fA0D66A78D814E5c5",
+      "archived": false,
+      "resolvedBy": "0x65070BE91477460D8A7AeEb94ef92fe056C2f2A7",
+      "restricted": true,
+      "groupItemTitle": "O/U 7.5",
+      "groupItemThreshold": "2",
+      "questionID": "0x23236ead5a508e150a74bede407f5c9197a149ebdf178c745c1fbad30c6e620a",
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.01,
+      "orderMinSize": 5,
+      "liquidityNum": 12.8368,
+      "endDateIso": "2026-03-07",
+      "startDateIso": "2026-03-07",
+      "hasReviewedDates": true,
+      "gameStartTime": "2026-03-07 18:05:00+00",
+      "secondsDelay": 3,
+      "clobTokenIds": "[\"29664334423917314408483601674221690428899772615841814949900937320563305409344\", \"5140591560232611430273002569126297978821368333096886327298123464740929121066\"]",
+      "umaBond": "500",
+      "umaReward": "2",
+      "liquidityClob": 12.8368,
+      "customLiveness": 0,
+      "acceptingOrders": true,
+      "negRisk": false,
+      "negRiskRequestID": "",
+      "ready": false,
+      "funded": false,
+      "acceptingOrdersTimestamp": "2026-03-07T16:06:45Z",
+      "cyom": false,
+      "competitive": 0.08994378513429108,
+      "pagerDutyNotificationEnabled": false,
+      "approved": true,
+      "rewardsMinSize": 50,
+      "rewardsMaxSpread": 4.5,
+      "spread": 0.91,
+      "bestBid": 0.07,
+      "bestAsk": 0.98,
+      "automaticallyActive": true,
+      "clearBookOnStart": true,
+      "manualActivation": false,
+      "negRiskOther": false,
+      "sportsMarketType": "totals",
+      "line": 7.5,
+      "umaResolutionStatuses": "[]",
+      "pendingDeployment": false,
+      "deploying": false,
+      "deployingTimestamp": "2026-03-07T16:05:29.596266Z",
+      "rfqEnabled": false,
+      "holdingRewardsEnabled": false,
+      "feesEnabled": false,
+      "requiresTranslation": false,
+      "feeType": null
+    }
+  ],
+  "series": [
+    {
+      "id": "3",
+      "ticker": "mlb",
+      "slug": "mlb",
+      "title": "MLB",
+      "seriesType": "single",
+      "recurrence": "daily",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/MLB.jpg",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/MLB.jpg",
+      "layout": "default",
+      "active": true,
+      "closed": false,
+      "archived": false,
+      "new": false,
+      "featured": false,
+      "restricted": true,
+      "publishedAt": "2022-10-13 00:37:11.511+00",
+      "createdBy": "15",
+      "updatedBy": "15",
+      "createdAt": "2022-10-13T00:37:01.013Z",
+      "updatedAt": "2026-03-16T23:36:50.513914Z",
+      "commentsEnabled": false,
+      "competitive": "0",
+      "volume24hr": 280952.057036,
+      "volume": 205077.75588499996,
+      "liquidity": 283106.97536,
+      "startDate": "2021-01-01T17:00:00Z",
+      "commentCount": 5830,
+      "requiresTranslation": false
+    }
+  ],
+  "tags": [
+    {
+      "id": "100639",
+      "label": "Games",
+      "slug": "games",
+      "forceShow": false,
+      "createdAt": "2024-09-23T22:41:37.670714Z",
+      "updatedAt": "2026-03-09T22:28:03.358133Z",
+      "requiresTranslation": false
+    },
+    {
+      "id": "1",
+      "label": "Sports",
+      "slug": "sports",
+      "forceShow": false,
+      "publishedAt": "2023-10-24 22:37:50.296+00",
+      "updatedBy": 15,
+      "createdAt": "2023-10-24T22:37:50.31Z",
+      "updatedAt": "2026-03-09T22:25:22.69129Z",
+      "forceHide": true,
+      "requiresTranslation": false
+    },
+    {
+      "id": "100381",
+      "label": "MLB",
+      "slug": "mlb",
+      "createdAt": "2024-08-27T16:42:20.841409Z",
+      "updatedAt": "2026-03-09T22:24:22.436768Z",
+      "requiresTranslation": false
+    }
+  ],
+  "cyom": false,
+  "showAllOutcomes": true,
+  "showMarketImages": false,
+  "enableNegRisk": false,
+  "automaticallyActive": true,
+  "eventDate": "2026-03-07",
+  "startTime": "2026-03-07T18:05:00Z",
+  "eventWeek": 1,
+  "seriesSlug": "mlb",
+  "negRiskAugmented": false,
+  "pendingDeployment": false,
+  "deploying": false,
+  "gameId": 77031,
+  "requiresTranslation": false,
+  "eventMetadata": {
+    "context_description": "Tampa Bay Rays' pitching edge drives trader consensus in their matchup against the Boston Red Sox, with starter Taj Bradley's 3.79 ERA contrasting Kutter Crawford's 4.16 mark amid Boston's recent bullpen woes. Rays hold a slight recent form advantage at 6-4 over their last 10 games versus Boston's 5-5, bolstered by home-field momentum at Tropicana Field where they've won four straight. Key injury concerns include Rays' outfielder Jonny DeLuca (hamstring, day-to-day) and Red Sox shortstop Trevor Story (shoulder, sidelined), potentially thinning lineups. Upcoming factors like Boston's road struggles (18-28 away) and Rays' rest advantage could sway implied probabilities, though upsets remain common in tight AL East clashes.",
+    "context_requires_regen": false,
+    "context_updated_at": "2026-03-16T19:37:25.232Z"
+  }
+}
+
+================================================================================================================================================================
+GAME MARKETS
+Event                               Question                                         Type           End Date     Prices                                                  Volume
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+Tampa Bay Rays vs. Boston Red Sox   Tampa Bay Rays vs. Boston Red Sox                moneyline      2026-03-14   Tampa Bay Rays: 0.000 / Boston Red Sox: 1.000               $0
+Tampa Bay Rays vs. Boston Red Sox   Spread: Boston Red Sox (-1.5)                    Spread -1.5    2026-03-14   Boston Red Sox: 0.505 / Tampa Bay Rays: 0.495              $12
+Tampa Bay Rays vs. Boston Red Sox   Tampa Bay Rays vs. Boston Red Sox: O/U 8.5       O/U 8.5        2026-03-14   Over: 0.515 / Under: 0.485                                 $13
+Tampa Bay Rays vs. Boston Red Sox   Tampa Bay Rays vs. Boston Red Sox: O/U 7.5       O/U 7.5        2026-03-14   Over: 0.525 / Under: 0.475                                 $13
+St. Louis Cardinals vs. Miami Mar   Spread: Miami Marlins (-1.5)                     Spread -1.5    2026-03-15   Miami Marlins: 0.495 / St. Louis Cardinals: 0.50           $11
+St. Louis Cardinals vs. Miami Mar   St. Louis Cardinals vs. Miami Marlins: O/U 7.5   O/U 7.5        2026-03-15   Over: 0.401 / Under: 0.600                                 $15
+St. Louis Cardinals vs. Miami Mar   St. Louis Cardinals vs. Miami Marlins            moneyline      2026-03-15   St. Louis Cardinals: 0.585 / Miami Marlins: 0.41        $1,343
+Cleveland Guardians vs. Colorado    Cleveland Guardians vs. Colorado Rockies         moneyline      2026-03-15   Cleveland Guardians: 0.500 / Colorado Rockies: 0            $0
+Cleveland Guardians vs. Colorado    Spread: Cleveland Guardians (-1.5)               Spread -1.5    2026-03-15   Cleveland Guardians: 0.505 / Colorado Rockies: 0            $2
+Cleveland Guardians vs. Colorado    Cleveland Guardians vs. Colorado Rockies: O/U    O/U 11.5       2026-03-15   Over: 0.475 / Under: 0.525                                  $3
+Cleveland Guardians vs. Colorado    Spread: Colorado Rockies (-1.5)                  Spread -1.5    2026-03-15   Colorado Rockies: 0.429 / Cleveland Guardians: 0            $4
+San Diego Padres vs. Arizona Diam   San Diego Padres vs. Arizona Diamondbacks        moneyline      2026-03-22   San Diego Padres: 0.286 / Arizona Diamondbacks:           $255
+San Diego Padres vs. Arizona Diam   Spread: Arizona Diamondbacks (-1.5)              Spread -1.5    2026-03-22   Arizona Diamondbacks: 0.140 / San Diego Padres:            $18
+San Diego Padres vs. Arizona Diam   San Diego Padres vs. Arizona Diamondbacks: O/U   O/U 11.5       2026-03-22   Over: 0.515 / Under: 0.485                                  $2
+San Diego Padres vs. Arizona Diam   Spread: San Diego Padres (-1.5)                  Spread -1.5    2026-03-22   San Diego Padres: 0.199 / Arizona Diamondbacks:            $21
+San Diego Padres vs. Arizona Diam   San Diego Padres vs. Arizona Diamondbacks: O/U   O/U 10.5       2026-03-22   Over: 0.520 / Under: 0.480                                  $3
+New York Yankees vs. Baltimore Or   New York Yankees vs. Baltimore Orioles           moneyline      2026-03-22   New York Yankees: 0.495 / Baltimore Orioles: 0.5          $114
+Toronto Blue Jays vs. Miami Marli   Toronto Blue Jays vs. Miami Marlins              moneyline      2026-03-23   Toronto Blue Jays: 1.000 / Miami Marlins: 0.001           $744
+Toronto Blue Jays vs. Miami Marli   Toronto Blue Jays vs. Miami Marlins: O/U 12.5    O/U 12.5       2026-03-23   Over: 0.505 / Under: 0.495                                  $0
+Toronto Blue Jays vs. Miami Marli   Spread: Toronto Blue Jays (-1.5)                 Spread -1.5    2026-03-23   Toronto Blue Jays: 0.505 / Miami Marlins: 0.495             $1
+Toronto Blue Jays vs. Miami Marli   Toronto Blue Jays vs. Miami Marlins: O/U 13.5    O/U 13.5       2026-03-23   Over: 0.505 / Under: 0.495                                  $0
+Toronto Blue Jays vs. Miami Marli   Spread: Miami Marlins (-1.5)                     Spread -1.5    2026-03-23   Miami Marlins: 0.505 / Toronto Blue Jays: 0.495             $0
+Los Angeles Angels vs. Athletics    Los Angeles Angels vs. Athletics                 moneyline      2026-03-23   Los Angeles Angels: 0.001 / Athletics: 1.000           $19,929
+Los Angeles Angels vs. Athletics    Spread: Athletics (-1.5)                         Spread -1.5    2026-03-23   Athletics: 1.000 / Los Angeles Angels: 0.001            $1,980
+Los Angeles Angels vs. Athletics    Los Angeles Angels vs. Athletics: O/U 11.5       O/U 11.5       2026-03-23   Over: 0.100 / Under: 0.900                              $1,969
+Milwaukee Brewers vs. Los Angeles   Milwaukee Brewers vs. Los Angeles Dodgers        moneyline      2026-03-23   Milwaukee Brewers: 0.994 / Los Angeles Dodgers:         $6,306
+Milwaukee Brewers vs. Los Angeles   Spread: Los Angeles Dodgers (-1.5)               Spread -1.5    2026-03-23   Los Angeles Dodgers: 0.505 / Milwaukee Brewers:             $0
+Milwaukee Brewers vs. Los Angeles   Milwaukee Brewers vs. Los Angeles Dodgers: O/U   O/U 11.5       2026-03-23   Over: 0.900 / Under: 0.100                              $1,968
+Cincinnati Reds vs. Arizona Diamo   Cincinnati Reds vs. Arizona Diamondbacks         moneyline      2026-03-23   Cincinnati Reds: 0.001 / Arizona Diamondbacks: 1       $35,837
+Cincinnati Reds vs. Arizona Diamo   Spread: Cincinnati Reds (-1.5)                   Spread -1.5    2026-03-23   Cincinnati Reds: 0.001 / Arizona Diamondbacks: 1        $2,008
+Cincinnati Reds vs. Arizona Diamo   Cincinnati Reds vs. Arizona Diamondbacks: O/U    O/U 10.5       2026-03-23   Over: 1.000 / Under: 0.001                              $1,985
+San Francisco Giants vs. San Dieg   San Francisco Giants vs. San Diego Padres        moneyline      2026-03-23   San Francisco Giants: 0.001 / San Diego Padres:        $54,405
+San Francisco Giants vs. San Dieg   San Francisco Giants vs. San Diego Padres: O/U   O/U 10.5       2026-03-23   Over: 0.001 / Under: 1.000                              $1,975
+San Francisco Giants vs. San Dieg   Spread: San Diego Padres (-1.5)                  Spread -1.5    2026-03-23   San Diego Padres: 1.000 / San Francisco Giants:         $1,975
+San Francisco Giants vs. San Dieg   San Francisco Giants vs. San Diego Padres: O/U   O/U 11.5       2026-03-23   Over: 0.001 / Under: 1.000                              $1,974
+Boston Red Sox vs. Baltimore Orio   Boston Red Sox vs. Baltimore Orioles             moneyline      2026-03-23   Boston Red Sox: 0.500 / Baltimore Orioles: 0.500        $4,836
+Washington Nationals vs. New York   Washington Nationals vs. New York Mets           moneyline      2026-03-23   Washington Nationals: 0.395 / New York Mets: 0.6        $4,167
+Washington Nationals vs. New York   Spread: New York Mets (-1.5)                     Spread -1.5    2026-03-23   New York Mets: 0.525 / Washington Nationals: 0.4            $1
+Washington Nationals vs. New York   Washington Nationals vs. New York Mets: O/U 9.   O/U 9.5        2026-03-23   Over: 0.505 / Under: 0.495                                  $0
+Washington Nationals vs. New York   Washington Nationals vs. New York Mets: O/U 10   O/U 10.5       2026-03-23   Over: 0.505 / Under: 0.495                                  $1
+Chicago White Sox vs. Texas Range   Chicago White Sox vs. Texas Rangers              moneyline      2026-03-24   Chicago White Sox: 0.395 / Texas Rangers: 0.605        $18,395
+Chicago Cubs vs. Cleveland Guardi   Chicago Cubs vs. Cleveland Guardians             moneyline      2026-03-24   Chicago Cubs: 0.455 / Cleveland Guardians: 0.545       $22,747
+Atlanta Braves vs. Boston Red Sox   Atlanta Braves vs. Boston Red Sox                moneyline      2026-03-24   Atlanta Braves: 0.535 / Boston Red Sox: 0.465           $9,616
+Baltimore Orioles vs. Detroit Tig   Baltimore Orioles vs. Detroit Tigers             moneyline      2026-03-24   Baltimore Orioles: 0.465 / Detroit Tigers: 0.535        $9,497
+Minnesota Twins vs. Philadelphia    Minnesota Twins vs. Philadelphia Phillies        moneyline      2026-03-24   Minnesota Twins: 0.490 / Philadelphia Phillies:         $9,558
+Houston Astros vs. Pittsburgh Pir   Houston Astros vs. Pittsburgh Pirates            moneyline      2026-03-24   Houston Astros: 0.515 / Pittsburgh Pirates: 0.48        $9,518
+New York Yankees vs. Tampa Bay Ra   New York Yankees vs. Tampa Bay Rays              moneyline      2026-03-24   New York Yankees: 0.480 / Tampa Bay Rays: 0.520         $9,568
+St. Louis Cardinals vs. Washingto   St. Louis Cardinals vs. Washington Nationals     moneyline      2026-03-24   St. Louis Cardinals: 0.495 / Washington National        $9,563
+New York Mets vs. Miami Marlins     New York Mets vs. Miami Marlins                  moneyline      2026-03-24   New York Mets: 0.525 / Miami Marlins: 0.475             $9,477
+Athletics vs. Chicago White Sox     Athletics vs. Chicago White Sox                  moneyline      2026-03-24   Athletics: 0.500 / Chicago White Sox: 0.500            $12,196
+Seattle Mariners vs. Colorado Roc   Seattle Mariners vs. Colorado Rockies            moneyline      2026-03-24   Seattle Mariners: 0.500 / Colorado Rockies: 0.50        $9,475
+San Diego Padres vs. Seattle Mari   San Diego Padres vs. Seattle Mariners            moneyline      2026-03-24   San Diego Padres: 0.475 / Seattle Mariners: 0.52        $9,665
+
+==================================================================================================================================
+WIN TOTAL MARKETS
+Question                                                               End Date      Over(Yes)  Under(No)      Volume
+----------------------------------------------------------------------------------------------------------------------------------
+Will the New York Yankees win more than 86.5 games in the 2026 MLB R   2026-10-05        0.445      0.555         $60
+Will the Boston Red Sox win more than 85.5 games in the 2026 MLB Reg   2026-10-05        0.385      0.615        $108
+Will the Toronto Blue Jays win more than 84.5 games in the 2026 MLB    2026-10-05        0.445      0.555        $151
+Will the Baltimore Orioles win more than 84.5 games in the 2026 MLB    2026-10-05        0.405      0.595        $104
+Will the Tampa Bay Rays win more than 78.5 games in the 2026 MLB Reg   2026-10-05        0.600      0.400         $43
+Will the Detroit Tigers win more than 85.5 games in the 2026 MLB Reg   2026-10-05        0.380      0.620         $70
+Will the Kansas City Royals win more than 81.5 games in the 2026 MLB   2026-10-05        0.395      0.605         $57
+Will the Minnesota Twins win more than 80.5 games in the 2026 MLB Re   2026-10-05        0.275      0.725        $331
+Will the Cleveland Guardians win more than 75.5 games in the 2026 ML   2026-10-05        0.405      0.595         $58
+Will the Chicago White Sox win more than 67.5 games in the 2026 MLB    2026-10-05        0.498      0.502         $54
+Will the Seattle Mariners win more than 88.5 games in the 2026 MLB R   2026-10-05        0.385      0.615         $66
+Will the Texas Rangers win more than 80.5 games in the 2026 MLB Regu   2026-10-05        0.380      0.620         $59
+Will the Houston Astros win more than 80.5 games in the 2026 MLB Reg   2026-10-05        0.420      0.580         $39
+Will the Athletics win more than 78.5 games in the 2026 MLB Regular    2026-10-05        0.585      0.415         $58
+Will the Los Angeles Angels win more than 72.5 games in the 2026 MLB   2026-10-05        0.605      0.395         $61
+Will the Atlanta Braves win more than 90.5 games in the 2026 MLB Reg   2026-10-05        0.610      0.390         $58
+Will the New York Mets win more than 89.5 games in the 2026 MLB Regu   2026-10-05        0.395      0.605         $52
+Will the Philadelphia Phillies win more than 87.5 games in the 2026    2026-10-05        0.395      0.605         $56
+Will the Miami Marlins win more than 74.5 games in the 2026 MLB Regu   2026-10-05        0.610      0.390         $54
+Will the Washington Nationals win more than 68.5 games in the 2026 M   2026-10-05        0.600      0.400         $66
+Will the Chicago Cubs win more than 86.5 games in the 2026 MLB Regul   2026-10-05        0.390      0.610         $65
+Will the Pittsburgh Pirates win more than 83.5 games in the 2026 MLB   2026-10-05        0.495      0.505         $21
+Will the Milwaukee Brewers win more than 82.5 games in the 2026 MLB    2026-10-05        0.410      0.590         $54
+Will the Cincinnati Reds win more than 78.5 games in the 2026 MLB Re   2026-10-05        0.375      0.625         $61
+Will the St. Louis Cardinals win more than 75.5 games in the 2026 ML   2026-10-05        0.580      0.420         $32
+Will the Los Angeles Dodgers win more than 99.5 games in the 2026 ML   2026-10-05        0.420      0.580        $102
+Will the San Francisco Giants win more than 82.5 games in the 2026 M   2026-10-05        0.615      0.385         $64
+Will the Arizona Diamondbacks win more than 81.5 games in the 2026 M   2026-10-05        0.485      0.515          $5
+Will the San Diego Padres win more than 80.5 games in the 2026 MLB R   2026-10-05        0.395      0.605         $53
+Will the Colorado Rockies win more than 65.5 games in the 2026 MLB R   2026-10-05        0.180      0.820        $296
+
+Total: 52 game markets + 30 win total markets across 42 MLB events.
