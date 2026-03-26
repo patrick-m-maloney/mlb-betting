@@ -1,211 +1,199 @@
 """
-Updated Monte Carlo Simulator — Final Production Version
-• All hard-coded values at the top
-• Reliable BBRef → mlbID mapping with league-average fallback
-• Batting-order weighted run projection (correct scaling)
-• Original 10k simulation engine preserved
+Monte Carlo game simulator — DuckDB-based, no pandas.
+
+Pipeline:
+  1. Load today's confirmed lineups from silver layer
+  2. Get per-player wOBA from ProjectionEngine
+  3. Project team runs via batting-order weighted wOBA
+  4. Run 10,000 normal simulations per game
+  5. Output win probabilities + projected run totals
+
+Usage:
+  python src/models/monte_carlo.py                # simulate today's games
+  python src/models/monte_carlo.py 2026-03-17     # simulate a specific date
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
+import json
 import os
-import pandas as pd
+import tempfile
 import numpy as np
-import glob
-import ast
-from datetime import datetime
-from rapidfuzz import process
+import duckdb
+from datetime import datetime, timezone
+
+from config.settings import SILVER_LINEUPS_DIR, SIMULATIONS_DIR
+from src.models.projections import ProjectionEngine
+
 
 # ========================= CONFIGURATION =========================
-# All magic numbers live here — change once, affects everything
 
-# Run environment
 N_SIMS = 10_000
 RANDOM_SEED = 42
 
-# wOBA scaling (calibrated so league avg 0.320 → 5.15 runs/game)
-LEAGUE_AVG_WOBA = 0.320
-RUNS_PER_GAME_SCALE = 5.15
-WOBA_TO_RUNS_MULTIPLIER = RUNS_PER_GAME_SCALE / (LEAGUE_AVG_WOBA * 38.5)  # ≈ 0.418
-
-# Home/away park & home-field advantage
+# Home/away multipliers (empirical MLB advantage)
 AWAY_MULTIPLIER = 0.98
 HOME_MULTIPLIER = 1.04
 
-# Realistic plate appearances per batting-order spot (MLB 2019-2025 avg)
+# Realistic PA per batting-order spot (MLB 2019-2025 avg)
 PA_PER_SPOT = [4.85, 4.70, 4.55, 4.45, 4.35, 4.25, 4.15, 4.05, 3.95]
 
 # Simulation noise (std dev of runs per team per game)
 RUNS_STD_DEV = 2.6
 
-# Paths
-LOGS_DIR = "data/raw/player_logs/game_by_game"
-LINEUPS_DIR = "data/bronze/lineups"
-SIM_OUTPUT_DIR = "data/simulations"
-LINEAR_WEIGHTS_PATH = "data/reference/linear_weights.csv"
+# League calibration: avg wOBA × avg PA → avg runs/game
+RUNS_PER_GAME_TARGET = 4.60
 
-# ================================================================
+# =================================================================
+
 
 class MonteCarloSimulator:
     def __init__(self):
-        print("🚀 Loading historical batting logs...")
-        bat_files = sorted(glob.glob(f"{LOGS_DIR}/batting_game_logs_*.parquet"))
-        self.batting = pd.concat([pd.read_parquet(f) for f in bat_files], ignore_index=True)
-        print(f"✅ Loaded {len(self.batting):,} batting rows")
+        self.projections = ProjectionEngine()
+        total_pa = sum(PA_PER_SPOT)
+        self.woba_to_runs = RUNS_PER_GAME_TARGET / (
+            self.projections.league_avg_woba * total_pa
+        )
 
-        # Name → mlbID fallback map
-        self.name_to_mlb = {}
-        for _, row in self.batting.iterrows():
-            name = str(row.get('Name', '')).strip().lower()
-            mlbid = row.get('mlbID')
-            if name and pd.notna(mlbid):
-                self.name_to_mlb[name] = mlbid
+    def load_todays_games(self, game_date: str | None = None) -> list[dict]:
+        """Load confirmed lineups from silver layer for a given date."""
+        if game_date is None:
+            game_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-        # === FIXED: Calculate wOBA if missing (this was the crash) ===
-        if 'wOBA' not in self.batting.columns:
-            print("   Calculating wOBA from linear weights...")
-            self.batting = self._calculate_woba(self.batting)
-        
-        # Now safe to compute league average
-        self.league_avg_woba = round(self.batting['wOBA'].mean(), 3)
-        print(f"🏆 League average wOBA (fallback): {self.league_avg_woba}")
+        year = game_date[:4]
+        silver_path = SILVER_LINEUPS_DIR / f"lineups_{year}.parquet"
 
-        # wOBA dictionary for fast lookup
-        self.player_woba = self.batting.groupby('mlbID')['wOBA'].mean().to_dict()
+        if not silver_path.exists():
+            print(f"⚠️  No lineup file: {silver_path}")
+            return []
 
-        self.people = pd.read_parquet("data/reference/lahman_files/people.parquet")
-        print("✅ All reference data loaded\n")
+        con = duckdb.connect()
+        rows = con.execute(f"""
+            SELECT *
+            FROM read_parquet('{silver_path}')
+            WHERE game_date = '{game_date}'
+        """).fetchall()
+        cols = [d[0] for d in con.description]
+        con.close()
 
-    def _calculate_woba(self, df):
-        """Exact same logic from your original code"""
-        lw = pd.read_csv(LINEAR_WEIGHTS_PATH).set_index('Season')
-        df = df.copy()
-        def calc(row):
-            year = int(row.get('game_year', 2025))
-            if year not in lw.index:
-                year = lw.index.max()
-            w = lw.loc[year]
-            pa = row.get('PA', 1) or 1
-            num = (w.get('wBB', 0.69) * row.get('BB', 0) +
-                   w.get('wHBP', 0.72) * row.get('HBP', 0) +
-                   w.get('w1B', 0.88) * (row.get('H', 0) - row.get('2B', 0) - row.get('3B', 0) - row.get('HR', 0)) +
-                   w.get('w2B', 1.25) * row.get('2B', 0) +
-                   w.get('w3B', 1.57) * row.get('3B', 0) +
-                   w.get('wHR', 2.0) * row.get('HR', 0))
-            return num / pa if pa > 0 else self.league_avg_woba
-        df['wOBA'] = df.apply(calc, axis=1)
-        return df
-    def load_latest_lineups(self):
-        files = sorted(glob.glob(f"{LINEUPS_DIR}/*/*.parquet"), reverse=True)
-        if not files:
-            raise FileNotFoundError("No lineup files — run lineups.py first!")
-        df = pd.read_parquet(files[0])
-        print(f"📋 LOADED {len(df)} games from: {files[0]}")
-        return df
+        games = [dict(zip(cols, row)) for row in rows]
+        confirmed = [g for g in games if g.get("is_confirmed")]
+        print(f"📋 {len(games)} games for {game_date} ({len(confirmed)} confirmed)")
+        return games
 
-    def get_mlbid_list(self, bbref_list, name_list):
-        """BBRef-first matching with name fuzzy fallback"""
-        mlbids = []
-        # 1. Exact BBRef → mlbID via people table
-        for bbref in bbref_list:
-            if pd.isna(bbref):
-                continue
-            match = self.people[self.people['playerID'] == str(bbref)]
-            if not match.empty:
-                row = match.iloc[0]
-                mlbid = row.get('mlbID') or row.get('key_mlbam')
-                if pd.notna(mlbid):
-                    mlbids.append(mlbid)
-                    continue
+    def project_lineup_runs(self, bbref_ids: list, multiplier: float) -> float:
+        """Project team runs from lineup wOBA values + batting-order PA weights."""
+        wobas = self.projections.get_lineup_wobas(bbref_ids)
+        pa_weights = PA_PER_SPOT[: len(wobas)]
+        contributions = [
+            w * pa * self.woba_to_runs for w, pa in zip(wobas, pa_weights)
+        ]
+        return sum(contributions) * multiplier
 
-        # 2. Name fuzzy matching (for any remaining gaps)
-        for name in name_list:
-            if not name:
-                continue
-            clean = str(name).strip().lower()
-            if clean in self.name_to_mlb:
-                mlbids.append(self.name_to_mlb[clean])
-                continue
-            result = process.extractOne(clean, self.name_to_mlb.keys(), score_cutoff=75)
-            if result:
-                mlbids.append(self.name_to_mlb[result[0]])
+    def simulate_game(self, game: dict) -> dict:
+        """Run N_SIMS Monte Carlo simulations for a single game."""
+        away = game["away_team"]
+        home = game["home_team"]
+        away_bbref = game.get("away_lineup_bbref_ids") or []
+        home_bbref = game.get("home_lineup_bbref_ids") or []
 
-        return [m for m in mlbids if m is not None]
+        away_runs_mean = self.project_lineup_runs(away_bbref, AWAY_MULTIPLIER)
+        home_runs_mean = self.project_lineup_runs(home_bbref, HOME_MULTIPLIER)
 
-    def project_lineup_runs(self, row, team_prefix: str) -> float:
-        """Accurate batting-order weighted run projection for ANY team (away or home)"""
-        try:
-            bbref_col = f"{team_prefix}lineup_bbref_ids"
-            name_col  = f"{team_prefix}lineup"
-            bbref_ids = ast.literal_eval(row.get(bbref_col, '[]'))
-            names     = ast.literal_eval(row.get(name_col, '[]'))
-        except:
-            bbref_ids = []
-            names     = row.get(name_col, [])
+        # Simulation
+        rng = np.random.default_rng(RANDOM_SEED)
+        away_rs = rng.normal(away_runs_mean, RUNS_STD_DEV, N_SIMS).clip(0)
+        home_rs = rng.normal(home_runs_mean, RUNS_STD_DEV, N_SIMS).clip(0)
 
-        # Get mlbIDs (with league avg fallback already built-in)
-        mlbids = self.get_mlbid_list(bbref_ids, names)
+        away_win_prob = float((away_rs > home_rs).mean())
+        home_win_prob = float((home_rs > away_rs).mean())
 
-        # Get wOBA per player
-        wobas = [self.player_woba.get(mid, self.league_avg_woba) for mid in mlbids]
-
-        # Batting-order PA weighting
-        expected_pa = PA_PER_SPOT[:len(wobas)]
-        contributions = [w * pa * WOBA_TO_RUNS_MULTIPLIER for w, pa in zip(wobas, expected_pa)]
-
-        return round(sum(contributions), 2)
-
-    def simulate_game(self, row):
-        print(f"SIMULATING: {row['away_team']} @ {row['home_team']}")
-
-        # === Project BOTH teams properly (no more replace hack) ===
-        away_rs_mean = self.project_lineup_runs(row, "away_") * AWAY_MULTIPLIER
-        home_rs_mean = self.project_lineup_runs(row, "home_") * HOME_MULTIPLIER
-
-        # Quick debug print so you can see the weighted projections
-        print(f"   Projected mean runs → {row['away_team']}: {away_rs_mean:.2f} | {row['home_team']}: {home_rs_mean:.2f}")
-
-        # Monte Carlo simulation (exactly as before)
-        np.random.seed(RANDOM_SEED)
-        away_rs = np.random.normal(away_rs_mean, RUNS_STD_DEV, N_SIMS).clip(0)
-        home_rs = np.random.normal(home_rs_mean, RUNS_STD_DEV, N_SIMS).clip(0)
-
-        avg_away = round(away_rs.mean(), 2)
-        avg_home = round(home_rs.mean(), 2)
-        win_prob = round((away_rs > home_rs).mean(), 4)
-        total    = round(avg_away + avg_home, 2)
-
-        print(f"   Final: {row['away_team']} {avg_away} — {avg_home} {row['home_team']} | Total {total} | Away win {win_prob:.1%}\n")
+        print(
+            f"  {away:<5} @ {home:<5}  "
+            f"{away_runs_mean:.2f} - {home_runs_mean:.2f}  "
+            f"({away} {away_win_prob:.1%} / {home} {home_win_prob:.1%})"
+        )
 
         return {
-            'game_date': row.get('game_date'),
-            'away_team': row['away_team'],
-            'home_team': row['home_team'],
-            'away_rs_proj': avg_away,
-            'home_rs_proj': avg_home,
-            'total_proj': total,
-            'away_win_prob': win_prob,
+            "game_date": str(game.get("game_date", ""))[:10],
+            "away_team": away,
+            "home_team": home,
+            "away_runs_proj": round(float(away_rs.mean()), 2),
+            "home_runs_proj": round(float(home_rs.mean()), 2),
+            "total_proj": round(float(away_rs.mean() + home_rs.mean()), 2),
+            "away_win_prob": round(away_win_prob, 4),
+            "home_win_prob": round(home_win_prob, 4),
+            "snapshot_timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-    def run_all_games(self):
-        lineups_df = self.load_latest_lineups()
-        results = []
-        for _, row in lineups_df.iterrows():
-            result = self.simulate_game(row)
-            results.append(result)
+    def run_all(self, game_date: str | None = None) -> list[dict]:
+        """Simulate all games for a given date."""
+        games = self.load_todays_games(game_date)
+        if not games:
+            print("No games to simulate.")
+            return []
 
-        results_df = pd.DataFrame(results)
-        
-        os.makedirs(SIM_OUTPUT_DIR, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-        save_path = f"{SIM_OUTPUT_DIR}/simulation_results_{timestamp}.parquet"
-        results_df.to_parquet(save_path, index=False)
-        
-        print(f"\n🎉 DONE — {len(results_df)} games simulated!")
-        print(f"Saved to: {save_path}")
-        print("\nTop 5 highest projected totals:")
-        print(results_df.nlargest(5, 'total_proj')[['away_team', 'home_team', 'away_rs_proj', 'home_rs_proj', 'total_proj', 'away_win_prob']])
+        # Skip games with empty lineups (no player data to simulate)
+        simulable = [
+            g for g in games
+            if (g.get("away_lineup_bbref_ids") or [])
+            and (g.get("home_lineup_bbref_ids") or [])
+        ]
+        skipped = len(games) - len(simulable)
+        if skipped:
+            print(f"   ⚠️  Skipping {skipped} games with missing lineups")
+
+        print(f"\n🎲 Simulating {len(simulable)} games ({N_SIMS:,} sims each)...")
+        results = [self.simulate_game(g) for g in simulable]
+
+        # Save
+        self._save_results(results)
+
+        # Summary table
+        print(f"\n🎉 {len(results)} games simulated!")
+        sorted_r = sorted(results, key=lambda r: r["total_proj"], reverse=True)
+        print(
+            f"\n{'Away':<6} {'Home':<6} {'AwayRS':>7} {'HomeRS':>7} "
+            f"{'Total':>6} {'AwayWin%':>9}"
+        )
+        print("-" * 50)
+        for r in sorted_r:
+            print(
+                f"{r['away_team']:<6} {r['home_team']:<6} "
+                f"{r['away_runs_proj']:>7.2f} {r['home_runs_proj']:>7.2f} "
+                f"{r['total_proj']:>6.1f} {r['away_win_prob']:>8.1%}"
+            )
+
+        return results
+
+    def _save_results(self, results: list[dict]) -> None:
+        if not results:
+            return
+        SIMULATIONS_DIR.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M")
+        target = SIMULATIONS_DIR / f"simulation_results_{ts}.parquet"
+
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".json")
+        try:
+            with os.fdopen(tmp_fd, "w") as f:
+                json.dump(results, f)
+            con = duckdb.connect()
+            con.execute(
+                f"COPY (SELECT * FROM read_json_auto('{tmp_path}')) "
+                f"TO '{target}' (FORMAT PARQUET, COMPRESSION ZSTD)"
+            )
+            n = con.execute(
+                f"SELECT COUNT(*) FROM read_parquet('{target}')"
+            ).fetchone()[0]
+            con.close()
+            print(f"💾 Saved {target.name}: {n} rows")
+        finally:
+            os.unlink(tmp_path)
+
 
 if __name__ == "__main__":
     sim = MonteCarloSimulator()
-    sim.run_all_games()
-
-
+    date_arg = sys.argv[1] if len(sys.argv) > 1 else None
+    sim.run_all(date_arg)

@@ -47,7 +47,8 @@ def build_player_id_map(force_refresh: bool = False) -> pd.DataFrame:
     # Keep useful columns
     keep_cols = [
         "PLAYERNAME", "BIRTHDATE", "BATS", "THROWS", "POS", "TEAM", "BREFID", "MLBID",
-        "ROTOWIRENAME", "ROTOWIREID", "FANGRAPHSID", "KEY_MLBAM", "KEY_RETRO"
+        "ROTOWIRENAME", "ROTOWIREID", "IDFANGRAPHS", "FANGRAPHSNAME",
+        "KEY_MLBAM", "KEY_RETRO",
     ]
     df = df[[c for c in keep_cols if c in df.columns]].copy()
 

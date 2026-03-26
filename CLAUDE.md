@@ -71,7 +71,9 @@ src/
 ├── features/
 │   └── player_fingerprinting.py    # PlayerComps: KNN historical comps
 ├── models/
-│   └── monte_carlo.py              # 10k-sim game simulator
+│   ├── projections.py             # Player wOBA projection engine (historical avg, future: KNN + Kalman)
+│   ├── monte_carlo.py             # 10k-sim game simulator (DuckDB-based)
+│   └── edge_detection.py          # Model vs market odds comparison
 ├── database/
 │   └── db_manager.py               # DuckDB append_to_table helper
 ├── scripts/
@@ -131,25 +133,68 @@ new_rows_sql = f"SELECT * FROM read_json_auto('{tmp_path}')"
 
 ### Key Classes
 
-**`PlayerComps`** (`src/features/player_fingerprinting.py`): KNN-based historical comp system. `build_historical_data()` pulls from FanGraphs and caches. `fit(is_batter)` trains separate models. `predict_adjusted_projection()` blends comp delta + rolling stats with October fade and rookie wall adjustments. All columns normalized to lowercase via `_normalize_columns()`.
+**`PlayerComps`** (`src/features/player_fingerprinting.py`): KNN-based historical comp system. **DuckDB + numpy only — no pandas.** `build_historical_data()` reads from local FanGraphs leaderboard parquets (2015–2025, PA >= 50) as primary source; falls back to pybaseball if local data has gaps. Caches to `data/raw/stats/comps_cache_*.parquet`. `fit(is_batter)` trains separate batter/pitcher models (sklearn NearestNeighbors + StandardScaler). `get_comps()` returns k=15 nearest historical comps + weighted-average target stat values. `predict_adjusted_projection()` blends comp delta + rolling stats with October fade and rookie wall adjustments. All feature columns use clean lowercase names (no `_normalize_columns()` — handled via SQL aliases in the DuckDB load).
 
 **`PlayerMatcher`** (`src/data_ingestion/player_id_matching.py`): Resolves names to cross-system IDs. Downloads SFBB master map from GitHub, caches to Parquet. Three-tier matching: exact SFBB → pybaseball fuzzy → rapidfuzz with context boost.
 
-**`MonteCarloSimulator`** (`src/models/monte_carlo.py`): Loads all historical batting logs at init, builds mlbID→wOBA lookup. `simulate_game()` projects lineup runs via batting-order weighted wOBA, then runs 10k normal simulations. All magic numbers are named constants at the top of the file.
+**`ProjectionEngine`** (`src/models/projections.py`): Two-layer player wOBA projection. Layer 0 (career avg): PA-weighted wOBA from 2017–2025 game logs. Layer 1 (KNN): `PlayerComps` finds 15 nearest historical FG comps → weighted comp-avg wRC+ converted to wOBA, blended 65%/35% with player's actual FG wOBA. Crosswalk: bbref_id → IDFANGRAPHS (via SFBB player_id_map) → FG season stats. Fallback priority: L1 → L0 → league avg (0.316). Pre-computes projections for all ~1,250 players with FG data at init.
+
+**`MonteCarloSimulator`** (`src/models/monte_carlo.py`): Loads `ProjectionEngine` at init. `simulate_game()` projects lineup runs via batting-order weighted wOBA, then runs 10k normal simulations. All magic numbers are named constants at the top of the file.
 
 **`register_views()` / `get_connection()`** (`src/database/db_manager.py`): Registers 11 DuckDB views over all Parquet data directories on every connection. Prefer `get_connection()` over raw `duckdb.connect()` in all query code.
 
 **`append_to_table()`** (`src/database/db_manager.py`): Schema-evolving DuckDB append for small reference tables. For odds/lineups, use direct Parquet file appends instead (views pick up new data automatically).
 
-### Future Work / Infrastructure
+### Projection Pipeline
 
-- **Cloud hosting**: deploy `mlb_scraper_bot.py` to Railway (~$5/month)
-  - Connects directly to GitHub repo
-  - Needs: `Procfile` or `railway.toml` at repo root, all API keys set as Railway env vars
-  - Docs: railway.app
+The full model flow from confirmed lineup to edge detection:
+
+**Step 1 — KNN Season Projection ✅ IMPLEMENTED**
+- Match player's entering FanGraphs profile (age, PA, wRC+, ISO, K%, BB%, BABIP, HardHit%, Barrel%, Spd) to 15 nearest historical comps (2015–2025 FG leaderboards)
+- Weighted-average comp wRC+ converted to wOBA; blended 65%/35% with player's actual FG wOBA
+- Implemented in `ProjectionEngine._init_knn_comps()` + `PlayerComps.get_comps()`
+- **Baseline vs KNN comparison (2026-03-17, 24 games):** KNN produced 50% wider win-probability spreads (10.2 pp range → 15.2 pp), more conviction on good/bad lineups, 22 edges vs 15 edges at >3% threshold
+
+**Step 2 — Kalman-style Blending (planned)**
+- Use KNN projection as the prior; blend with actual cumulative season stats
+- Weight formula: early season → weight toward KNN prior; late season → weight toward actuals (confidence grows with PA)
+- Mean-reversion component: regress player rolling average toward comp-based projection, tunable via backtesting
+
+**Step 3 — Monte Carlo ✅ IMPLEMENTED**
+- Feed blended player projections into confirmed lineup
+- 10k game simulations → run distribution → win probability
+
+**Step 4 — Edge Detection ✅ IMPLEMENTED**
+- Compare model win probability to market implied probability (The Odds API, Kalshi, Polymarket)
+- Flags +EV opportunities above a configurable threshold (default 3%)
+
+Backtesting will calibrate the blending weights and inform when to transition between early/late season models.
+
+**Planned: Implied Win Probability Tracker**
+- For each game, convert all market lines (sportsbooks, Kalshi, Polymarket, model) to implied win % using standard vig removal
+- American odds → implied prob: positive: 100/(odds+100), negative: |odds|/(|odds|+100)
+- Track how each source's implied probability shifts throughout the day as lines move
+- Visualize as a time-series graph: x = time, y = implied win %, one line per source + model
+- Useful for spotting when the market moves toward or away from the model's view
+
+### Railway Deployment
+
+Repo is configured for Railway deployment as a background worker (no web server):
+- `Procfile`: `worker: python src/scripts/mlb_scraper_bot.py`
+- `railway.toml`: Python 3.12, nixpacks builder, restart on failure
+- Set all API keys in Railway dashboard as environment variables (see `.env.example`)
+- `config/settings.py` creates all `data/` subdirectories at import time — no pre-created dirs needed on the server
+- **Data persistence**: Railway volumes must be mounted at `/data` if you want parquet files to survive deploys. Without a volume, data resets on each deploy. Alternatively, point the scraper at a remote storage backend (S3/GCS) for the parquet files.
 
 ### Known Issues
 
 - `data/mlb_betting.db` at project root is a stale orphan — real DB is `data/db/mlb_betting.duckdb`
-- `load_linear_weights()` in `player_fingerprinting.py` is defined inside the `PlayerComps` class without `self` (should be `@staticmethod` or extracted)
 - wOBA calculation is duplicated in `monte_carlo.py`, `player_fingerprinting.py`, and `playground.ipynb`
+
+### KNN Layer 1 — Tuning Backlog
+
+- **Extreme-performer overshoot**: Ohtani-tier players (.418 FG wOBA) get projected too high (~.464) because their comp pool is other elite hitters whose comp average exceeds their actual. The 35% comp blend weight should be tuned down for outlier performers, or the comp pool should be capped at a percentile.
+- **Comp blend weight should be PA-dependent (Layer 2)**: Current weight of 0.35 is hardcoded. Should scale with PA: high PA → trust actual more, low PA → weight toward comps. This is the foundation of the Kalman blend.
+- **Add mean reversion to rolling average**: The blending formula should include a mean-reversion component that pulls player rolling averages toward their comp-based projection. Weights tunable via backtesting.
+- **julgery01 ID crosswalk miss**: `julgery01` (and likely other players) fail to match bbref_id → IDfg and fall back to L0 career avg. SFBB map coverage should be investigated — may need supplemental matching by name for players not in the SFBB map.
+- **Player fingerprinting cache is cold on Railway**: `data/raw/stats/comps_cache_*.parquet` won't exist on a fresh Railway deploy. Either commit the cache files (small, ~few MB) or have the bot run `PlayerComps.build_historical_data()` on first startup if cache is missing. Currently `fit()` auto-builds if cache is absent, so this is handled — but takes time on first run.

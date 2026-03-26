@@ -54,7 +54,7 @@ PROCESSED_PATH.mkdir(parents=True, exist_ok=True)
 
 # Reference files
 PLAYER_ID_MAP_PATH = REFERENCE_DIR / "player_id_map.parquet"
-LINEAR_WEIGHTS_PATH = REFERENCE_DIR / "linear_weights.csv"
+LINEAR_WEIGHTS_PATH = REFERENCE_DIR / "linear_weights.parquet"
 
 # Scraping / API settings
 ROT_WIRE_DELAY = 2.0          # seconds between requests
@@ -64,4 +64,4 @@ THE_RUNDOWN_API_KEY = os.getenv("THE_RUNDOWN_API_KEY")
 MATCH_CONFIDENCE_THRESHOLD = 85
 FUZZY_THRESHOLD = 90
 
-DATA_SCHEMAS = yaml.safe_load(Path("config/data_schemas.yaml").read_text(encoding="utf-8"))
+DATA_SCHEMAS = yaml.safe_load((BASE_DIR / "config" / "data_schemas.yaml").read_text(encoding="utf-8"))

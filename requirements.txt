@@ -1,4 +1,4 @@
-# apschedule      >= 3.11.2
+APScheduler      >= 3.10.0
 beautifulsoup4  >= 4.12.3
 duckdb          >= 1.0.0
 kalshi_python_async >= 3.9.0
