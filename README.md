@@ -10,30 +10,30 @@ Advanced matchup-specific MLB betting engine — daily games (ML, RL, totals) + 
 
 - **Odds ingestion** — The Odds API (h2h, spreads, totals, futures), Kalshi, Polymarket public markets. Appended to per-source per-year bronze Parquet (`data/bronze/odds/SOURCE_YYYY.parquet`). DuckDB views registered automatically.
 - **Lineup scraper** — Rotowire daily lineups (live + local HTML for backtesting). Extracts game time, teams, starters + handedness, full 9-man batting orders with positions and bats, confirmed status, weather, umpire, per-book odds (LINE + O/U). Saves to per-year bronze + silver Parquet.
-- **Player ID matching** — 3-tier resolution: (1) exact SFBB lookup from GitHub mirror, (2) pybaseball fuzzy, (3) rapidfuzz token sort + team/position context boost. Handles duplicate names. Cached to `data/reference/player_id_map.parquet`.
-- **Player fingerprinting (KNN comps)** — `PlayerComps` class using sklearn NearestNeighbors on age, service time, wRC+, FIP, ISO, K%, BB%, BABIP, HardHit%, Barrel%, Spd. Weighted YoY delta from top 15 comps, in-season rolling blend, October fade (x0.96), rookie wall adjustment (x1.07).
-- **Monte Carlo simulator** — 10k-sim engine. Loads latest lineup scrape, maps players to historical wOBA via BBRef→mlbID crosswalk with fuzzy name fallback, batting-order weighted PA projection, home/away park multipliers. Outputs RS/RA, total, spread, win probability per game.
+- **Player ID matching** — 3-tier resolution: (1) exact SFBB lookup from GitHub mirror, (2) pybaseball fuzzy, (3) rapidfuzz token sort + team/position context boost. Handles duplicate names. Cached to `data/reference/player_id_map.parquet`. Includes SFBB → FanGraphs IDfg crosswalk.
+- **Player fingerprinting (KNN comps)** — `PlayerComps` class using sklearn NearestNeighbors on age, service time, wRC+, ISO, K%, BB%, BABIP, HardHit%, Barrel%, Spd. Primary data source: local FanGraphs leaderboard parquets (2015–2025, 5,800+ batter player-seasons). Falls back to pybaseball if local data has gaps. DuckDB + numpy only, no pandas. Cached to `data/raw/stats/comps_cache_*.parquet`.
+- **Projection engine (L0 + L1)** — Layer 0: PA-weighted career wOBA from 2017–2025 game logs (~2,300 players). Layer 1: KNN comp-based projection blended 65%/35% with player's actual FG wOBA (~1,250 players). Comparison on 2026-03-17: KNN produced 50% wider win-probability spreads (10 pp → 15 pp range) and 47% more edge signals.
+- **Monte Carlo simulator** — 10k-sim engine. Loads `ProjectionEngine` at init, maps lineup bbref_ids to projected wOBA (L1 → L0 → league avg fallback chain), batting-order weighted PA projection, home/away park multipliers. Outputs RS/RA, total, spread, win probability per game.
+- **Edge detection** — Compares model win probability to implied probability from all market sources. Flags +EV edges above configurable threshold (default 3%).
 - **Scheduler bot** — APScheduler-based, polls every 30 min (10 min near game time). Runs lineups + all odds sources in a single scrape cycle.
 - **Historical data** — Schedules 2000–2026 (MLB-StatsAPI), FanGraphs leaderboards 1980–2025, daily Baseball Reference game logs 2017–2025, Lahman database (1871–2025), linear weights (1871–2025).
 
 ### Not yet built
 
-- Kalman filter for in-season player updating (true talent as hidden state, each game as observation)
+- Kalman blend (Layer 2): PA-dependent weighting of KNN prior vs in-season actuals
 - Platoon split integration (vs LHP/RHP) in Monte Carlo projections
 - Park factors and weather adjustments in simulation
 - Bullpen usage modeling (starter pitch count → bullpen handoff)
-- Edge calculator + limit-tracking meta layer
 - Batter-vs-pitcher Markov chain simulation (evolution from aggregate RS/RA)
 - Backtesting framework
 
 ## What's Next (prioritized)
 
-1. **Fix scraper bot imports** — broken since odds fetchers moved to `src/data_ingestion/odds/`
-2. **Platoon splits in Monte Carlo** — use batter hand vs starter hand for wOBA lookup
-3. **Park factors + weather** — integrate into run projection multipliers
-4. **Kalman filter** — add to `PlayerComps` for in-season true-talent updating
-5. **Edge calculator** — compare model probability to market implied probability, track +EV opportunities
-6. **Full batter-vs-pitcher simulation** — evolve from aggregate wOBA to Statcast outcome distributions
+1. **Kalman blend (Layer 2)** — make comp blend weight PA-dependent; add mean reversion; tune via backtesting
+2. **KNN tuning** — fix extreme-performer overshoot (Ohtani-tier); improve ID crosswalk coverage
+3. **Platoon splits in Monte Carlo** — use batter hand vs starter hand for wOBA lookup
+4. **Park factors + weather** — integrate into run projection multipliers
+5. **Full batter-vs-pitcher simulation** — evolve from aggregate wOBA to Statcast outcome distributions
 
 ## Tech Stack
 
@@ -110,15 +110,27 @@ pip install -r requirements.txt
 
 ```bash
 # Automated scraping (lineups + odds every 30 min)
-caffeinate -s python -m src.scripts.mlb_scraper_bot
+caffeinate -s python src/scripts/mlb_scraper_bot.py
 
 # Manual one-off scrape
 python src/scripts/manual_scrape_odds.py
 
-# Run Monte Carlo simulation on latest lineups
-python src/models/monte_carlo.py
+# Full modeling pipeline (projections → Monte Carlo → edge detection)
+python src/models/projections.py        # test projection engine
+python src/models/monte_carlo.py        # simulate today's games
+python src/models/edge_detection.py     # compare to market odds
 
 # Fetch historical data
 python src/data_ingestion/schedule_fetcher.py
 python src/data_ingestion/player_logs_fetcher.py
 ```
+
+## Railway Deployment
+
+Repo is configured for Railway. To deploy:
+
+1. Connect repo in Railway dashboard
+2. Add environment variables from `.env.example`
+3. Railway will detect `Procfile` and run `python src/scripts/mlb_scraper_bot.py` as a background worker
+
+**Important:** Parquet data files don't persist across Railway deploys without a mounted volume. The scraper will start fresh on each deploy unless you attach a Railway volume at the `data/` path.
