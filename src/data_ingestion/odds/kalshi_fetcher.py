@@ -1,5 +1,5 @@
 """
-Kalshi odds fetcher using kalshi_python_sync SDK.
+Kalshi odds fetcher — direct REST API, no SDK dependency.
 
 Fetches two market types:
   - KXMLBSTGAME: single game head-to-head winner markets
@@ -7,6 +7,8 @@ Fetches two market types:
 
 Appends to data/bronze/odds/kalshi_YYYY.parquet (one file per year).
 Each row = one market with a snapshot_timestamp and market_type column.
+
+No auth required for public market data reads.
 """
 
 import sys
@@ -18,9 +20,8 @@ import os
 import tempfile
 import time
 import duckdb
+import requests
 from datetime import datetime, timezone
-
-from kalshi_python_sync import Configuration, KalshiClient
 
 from config.settings import BASE_DIR
 
@@ -33,9 +34,10 @@ _MONTH_MAP = {
 }
 
 
-def _make_client() -> KalshiClient:
-    config = Configuration(host=PRODUCTION_HOST)
-    return KalshiClient(config)
+def _make_session() -> requests.Session:
+    session = requests.Session()
+    session.headers.update({"Accept": "application/json"})
+    return session
 
 
 def _parse_game_ticker(ticker: str) -> dict:
@@ -61,7 +63,7 @@ def _parse_game_ticker(ticker: str) -> dict:
         away = teams[: len(teams) - len(winner_side)]
     elif teams.startswith(winner_side):
         away = winner_side
-        home = teams[len(winner_side) :]
+        home = teams[len(winner_side):]
     else:
         away, home = teams[:3], teams[3:]  # fallback
     month    = _MONTH_MAP.get(mon, 0)
@@ -89,52 +91,71 @@ def _parse_win_total_ticker(ticker: str) -> dict:
     return {"team": team, "win_threshold": win_threshold}
 
 
-def _market_to_row(market, market_type: str, snapshot_ts: str, extra: dict) -> dict:
-    """Flatten an SDK Market object to a plain dict for parquet storage."""
+def _market_to_row(market: dict, market_type: str, snapshot_ts: str, extra: dict) -> dict:
+    """Flatten a REST API market dict to a plain dict for parquet storage."""
+    def _dollars(val) -> float:
+        """Kalshi returns prices as cents (0–100) or fractions (0.0–1.0). Normalize to 0–1."""
+        if val is None:
+            return 0.0
+        f = float(val)
+        return f / 100.0 if f > 1.0 else f
+
+    close_time = market.get("close_time")
     return {
-        "ticker":          market.ticker,
-        "event_ticker":    market.event_ticker,
-        "title":           market.title,
-        "subtitle":        getattr(market, "subtitle", None),
-        "status":          market.status,
-        "yes_bid":         float(market.yes_bid_dollars or 0),
-        "yes_ask":         float(market.yes_ask_dollars or 0),
-        "no_bid":          float(market.no_bid_dollars or 0),
-        "no_ask":          float(market.no_ask_dollars or 0),
-        "volume":          float(market.volume_fp or 0),
-        "volume_24h":      float(market.volume_24h_fp or 0),
-        "open_interest":   float(market.open_interest_fp or 0),
-        "close_time":      market.close_time.isoformat() if market.close_time else None,
-        "market_type":     market_type,
+        "ticker":             market.get("ticker"),
+        "event_ticker":       market.get("event_ticker"),
+        "title":              market.get("title"),
+        "subtitle":           market.get("subtitle"),
+        "status":             market.get("status"),
+        "yes_bid":            _dollars(market.get("yes_bid")),
+        "yes_ask":            _dollars(market.get("yes_ask")),
+        "no_bid":             _dollars(market.get("no_bid")),
+        "no_ask":             _dollars(market.get("no_ask")),
+        "volume":             float(market.get("volume", 0) or 0),
+        "volume_24h":         float(market.get("volume_24h", 0) or 0),
+        "open_interest":      float(market.get("open_interest", 0) or 0),
+        "close_time":         close_time,
+        "market_type":        market_type,
         "snapshot_timestamp": snapshot_ts,
-        "snapshot_date":   snapshot_ts[:10],
-        "source":          "kalshi",
+        "snapshot_date":      snapshot_ts[:10],
+        "source":             "kalshi",
         **extra,
     }
 
 
-def _fetch_series(client: KalshiClient, series_ticker: str, snapshot_ts: str) -> list[dict]:
+def _fetch_series(session: requests.Session, series_ticker: str,
+                  snapshot_ts: str) -> list[dict]:
     """Paginate through all markets for a series and return flat row dicts."""
     market_type = "game_winner" if series_ticker == "KXMLBSTGAME" else "win_total"
     parser = _parse_game_ticker if series_ticker == "KXMLBSTGAME" else _parse_win_total_ticker
     # Game markets are status=open; win totals are unopened pre-season so fetch without filter
     status = "open" if series_ticker == "KXMLBSTGAME" else None
+
     rows = []
     cursor = None
     while True:
-        resp = client.get_markets(
-            limit=1000,
-            cursor=cursor,
-            status=status,
-            series_ticker=series_ticker,
-            mve_filter="exclude",
-        )
-        for market in resp.markets:
-            rows.append(_market_to_row(market, market_type, snapshot_ts, parser(market.ticker)))
-        cursor = resp.cursor
+        params: dict = {
+            "limit": 1000,
+            "series_ticker": series_ticker,
+        }
+        if status:
+            params["status"] = status
+        if cursor:
+            params["cursor"] = cursor
+
+        resp = session.get(f"{PRODUCTION_HOST}/markets", params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+
+        for market in data.get("markets", []):
+            rows.append(_market_to_row(market, market_type, snapshot_ts,
+                                       parser(market.get("ticker", ""))))
+
+        cursor = data.get("cursor")
         if not cursor:
             break
         time.sleep(0.25)
+
     return rows
 
 
@@ -177,16 +198,16 @@ def _append_to_parquet(rows: list[dict], year: int) -> None:
 def fetch_kalshi_mlb() -> list[dict] | None:
     """Fetch KXMLBSTGAME + KXMLBWINS markets and append to bronze parquet."""
     try:
-        client = _make_client()
+        session = _make_session()
         snapshot_ts = datetime.now(timezone.utc).isoformat()
         year = datetime.now(timezone.utc).year
 
-        game_rows = _fetch_series(client, "KXMLBSTGAME", snapshot_ts)
+        game_rows = _fetch_series(session, "KXMLBSTGAME", snapshot_ts)
         print(f"✅ Kalshi KXMLBSTGAME: {len(game_rows)} game winner markets")
 
         time.sleep(0.5)
 
-        win_rows = _fetch_series(client, "KXMLBWINS", snapshot_ts)
+        win_rows = _fetch_series(session, "KXMLBWINS", snapshot_ts)
         print(f"✅ Kalshi KXMLBWINS: {len(win_rows)} win total markets")
 
         all_rows = game_rows + win_rows
