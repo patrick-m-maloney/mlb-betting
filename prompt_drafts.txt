@@ -6,272 +6,286 @@ Other Betting Sites
     - Novig
     - Betfair
 
-# after finishing current round of prompts/fixes, I want to manually go to each site/download a sample of data so taht I can determine exactly how I want the data stored
-
-
-So I have a couple of questions.  I'll ask them one at a time, and we'll move on after that.
-Currently, all we are doing is calculating the predicting runs scored for each team over the course of a game, correct?
-So the monte carlo sim runs x number of times, and the average results are that team A scores 3 runs, team B scores 4 runs (so team A has 4 runs allowed)
-So Team A over the course of this 'season' of x games gets a total runs scored of 3x and runs allowed 4x
-Then according to the pythagorean theorem of baseball this would translate to a certain number of wins/winning %
-We get the same for team B
-then we just use a simple calculation of the odds that a team with winning % W beats a team w winning % (100-W), chance they lose, tie, etc
-
-
-when we switch to batter vs pitcher simulation, how do we do this?
-    - i assume we have stats for pitchers such as # pitches thrown a game, etc
-    - can we map effectiveness over # of pitches? (so pitchers would have almost 3 levels of performance modelling: course of career, course of season, and course of the game)
-As for next steps, I want to really focus on improving the player performance model before going into 
-
-
-
-
-
-
-
-
-Here was the response:
-
-1. Full Codebase Review
-
-
-
-  What the project currently does
-
-
-
-  This is an MLB betting engine that aims to find +EV edges by projecting per-game run scored / runs allowed using
-
-  player-specific data, then comparing those projections to live sportsbook odds. The current pipeline:
-
-
-
-  1. Ingests data from multiple sources: Rotowire (lineups), The Odds API (sportsbook odds), Kalshi, Polymarket,
-
-  TheRundown (prediction markets), pybaseball/FanGraphs (player stats), MLB-StatsAPI (schedules), and Lahman database
-
-  (reference data).
-
-  2. Fingerprints players via KNN historical comps (age, service time, Statcast metrics) to project player performance.
-
-  3. Matches player identities across systems (Rotowire name → BBRef ID → mlbID) using a 3-tier fuzzy matcher.
-
-  4. Simulates games via Monte Carlo (10k iterations) using lineup wOBA weighted by batting order position → projected
-
-  RS/RA per team.
-
-  5. Runs on a schedule via an APScheduler bot that scrapes lineups + odds every 30 minutes (accelerating to 10 min near
-
-  game time).
-
-
-
-  Structure assessment
-
-
-  Source code (src/):
-
-  ┌─────────────────────────────────────────────────┬───────────┬────────────────────────────────────────────────────┐
-  │                     Module                      │  Status   │                       Notes                        │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │ src/data_ingestion/lineups.py                   │ Working   │ Rotowire scraper → bronze + silver Parquet +       │
-  │                                                 │           │ DuckDB view                                        │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │ src/data_ingestion/odds/the_odds_api_fetcher.py │ Working   │ Active code + 100 lines of commented-out old       │
-  │                                                 │           │ version at top                                     │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │ src/data_ingestion/odds/kalshi_fetcher.py       │ Working   │ Same pattern — old commented code + new version    │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │ src/data_ingestion/odds/polymarket_fetcher.py   │ Working   │ Same pattern                                       │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │ src/data_ingestion/odds/rundown_fetcher.py      │ Dormant   │ No API key yet                                     │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │ src/data_ingestion/player_id_matching.py        │ Working   │ PlayerMatcher class                                │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │ src/data_ingestion/player_logs_fetcher.py       │ Working   │ Daily BR game logs with checkpoint/resume          │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │ src/data_ingestion/schedule_fetcher.py          │ Working   │ MLB-StatsAPI schedules                             │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │                                                 │ Working   │                                                    │
-  │ src/season_total_logs_fetcher.py                │ but       │ Should be in src/data_ingestion/                   │
-  │                                                 │ misplaced │                                                    │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │ src/features/player_fingerprinting.py           │ Working   │ KNN comps; load_linear_weights() is incorrectly    │
-  │                                                 │           │ nested inside the class without self               │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │ src/models/monte_carlo.py                       │ Working   │ 10k-sim engine                                     │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │ src/database/db_manager.py                      │ Working   │ DuckDB append-only helper                          │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │                                                 │           │ Imports from                                       │
-  │ src/scripts/mlb_scraper_bot.py                  │ Broken    │ src.data_ingestion.the_odds_api_fetcher but file   │
-  │                                                 │ imports   │ is at                                              │
-  │                                                 │           │ src/data_ingestion/odds/the_odds_api_fetcher.py    │
-  ├─────────────────────────────────────────────────┼───────────┼────────────────────────────────────────────────────┤
-  │ src/scripts/manual_scrape_odds.py               │ Working   │ Correct import paths                               │
-  └─────────────────────────────────────────────────┴───────────┴────────────────────────────────────────────────────┘
-
-Redundancy, duplication, and inconsistency
-
-  1. Commented-out old code: Every odds fetcher file (the_odds_api_fetcher.py, kalshi_fetcher.py, polymarket_fetcher.py,
-  rundown_fetcher.py) contains 40-100 lines of the old version fully commented out above the active version. This is dead
-   weight — that's what git history is for.
-  2. Duplicate data paths for lineups: Lineups are written to data/raw/ (old) AND data/bronze/ (new medallion pattern).
-  The Monte Carlo simulator reads from data/bronze/lineups/ while save_lineups() writes to both bronze + silver.
-  3. Two database files: data/mlb_betting.db (524K, stale) sits in data/ while the real active DuckDB is at
-  data/db/mlb_betting.duckdb (780K). The manual_scrape_odds.py even prints instructions pointing to the wrong DB
-  (data/mlb_betting.db).
-  4. season_totals/ naming confusion: Files in data/raw/player_logs/season_totals/ are named
-  batting_game_logs_YYYY.parquet — the word "game_logs" suggests per-game data, but these are actually FanGraphs
-  season-level leaderboard pulls (from batting_stats() with ind=1). Meanwhile the actual game-by-game logs live in
-  game_by_game/ with identical filenames.
-  5. Broken import in scraper bot: mlb_scraper_bot.py line 18 imports from src.data_ingestion.the_odds_api_fetcher import
-   ... but the file was moved to src/data_ingestion/odds/. This means the scheduler bot cannot currently run.
-  6. Missing __init__.py in: src/data_ingestion/odds/, src/database/, src/models/, src/scripts/. These work from __main__
-   but won't work as proper package imports.
-  7. wOBA calculation duplicated in 3 places: monte_carlo.py:77-95, playground.ipynb cells 14 and 22. Should be a single
-  utility function.
-
-  Refactoring recommendations
-
-  1. Fix the scraper bot imports — update mlb_scraper_bot.py to import from src.data_ingestion.odds.*. This is the most
-  urgent fix since it means the automated pipeline is broken.
-  2. Remove commented-out old code from all four odds fetcher files. The old versions are preserved in git history.
-  3. Add missing __init__.py files to src/data_ingestion/odds/, src/database/, src/models/, src/scripts/.
-  4. Move src/season_total_logs_fetcher.py into src/data_ingestion/ where all other fetchers live.
-  5. Extract wOBA calculation into a shared utility (e.g., src/features/woba.py) instead of duplicating it.
-  6. Fix load_linear_weights() in player_fingerprinting.py — it's defined inside the PlayerComps class at class-level
-  indentation but lacks self. Either make it @staticmethod or move it outside the class.
-  7. Rename season_totals/ files to something like fangraphs_batting_YYYY.parquet / fangraphs_pitching_YYYY.parquet to
-  avoid confusion with game_by_game/ files that have the same filenames.
-
-  ---
-  2. Data & Storage Restructure Recommendations
-
-  Current state
-
-  The data is organized across three layers plus raw:
-
-  data/
-  ├── raw/              # Timestamped Parquet snapshots (odds, schedules, player logs)
-  │   ├── odds/YYYY-MM-DD/games/   # ~688K
-  │   ├── schedules/               # ~888K, one file per year
-  │   ├── player_logs/
-  │   │   ├── season_totals/       # 40MB — FanGraphs leaderboards (misleading name)
-  │   │   └── game_by_game/        # 9.6MB — daily BR logs
-  │   └── stats/comps_cache.parquet
-  ├── bronze/lineups/YYYY-MM-DD/   # 2.3MB — raw lineup scrapes
-  ├── silver/lineups/year=*/month=*/day=*/ # Hive-partitioned deduped lineups
-  ├── gold/                        # Empty (planned)
-  ├── reference/                   # Lahman + linear weights + player ID map
-  ├── simulations/                 # Monte Carlo output files
-  ├── db/mlb_betting.duckdb        # 780K — central time-series DB
-  ├── misc_old/                    # 36MB — legacy CSVs/zips
-  └── mlb_betting.db               # 524K — stale orphan DB
-
-  Assessment
-
-  What's working well:
-  - Timestamped Parquet snapshots for odds and lineups (append-only, never overwrite) — this is the right approach for
-  time-series betting data where you need line movement history.
-  - Hive-style partitioning on silver lineups (year=/month=/day=) is good for DuckDB reads.
-  - Reference data cleanly separated.
-
-  Problems:
-  1. DuckDB is severely underutilized — only 18 rows across 2 tables. The append_to_table function works, but almost no
-  data flows through it. Most data is in Parquet files that DuckDB can't easily query without manual view creation.
-  2. Dual-write pattern (Parquet files + DuckDB inserts) means data can diverge. Some fetchers write to Parquet only
-  (odds snapshots via save_snapshot()), some to DuckDB only (via append_to_table()), some to both.
-  3. No single query layer — to answer "what were the odds for today's games?", you'd need to glob Parquet files
-  manually. DuckDB should serve as the query layer over all Parquet files, but views are only created for lineups.
-  4. season_totals/ at 40MB is the largest directory but uses misleading filenames and isn't integrated with any
-  downstream consumer.
-  5. No partitioning on odds data beyond date folders. During the regular season with polling every 10-30 minutes, each
-  day could produce 50+ small Parquet files in data/raw/odds/YYYY-MM-DD/games/ — that's fine for now but will slow down
-  reads.
-
-  Recommended target architecture
-
-  Principle: Parquet as storage, DuckDB as the query layer.
-
-  Keep writing timestamped Parquet snapshots (they're your immutable audit trail). But register ALL of them as DuckDB
-  views so everything is queryable from one connection:
-
-  data/
-  ├── bronze/                    # Raw ingestion (append-only Parquet)
-  │   ├── lineups/YYYY-MM-DD/   # (already here)
-  │   ├── odds/YYYY-MM-DD/      # Move from data/raw/odds/
-  │   ├── kalshi/YYYY-MM-DD/    # Currently only in DuckDB
-  │   └── polymarket/YYYY-MM-DD/
-  ├── silver/                    # Cleaned, deduped, enriched
-  │   ├── lineups/year=*/month=*/day=*/  # (already here)
-  │   ├── odds/year=*/month=*/day=*/     # Flattened odds per game/book/market
-  │   └── player_stats/                  # Merged batting + pitching + wOBA
-  ├── gold/                      # Model-ready features
-  │   ├── projections/           # Per-player projected wOBA/FIP for today
-  │   └── edges/                 # Model probability vs market odds
-  ├── reference/                 # (keep as-is)
-  ├── simulations/               # (keep as-is)
-  └── db/mlb_betting.duckdb      # Views over ALL parquet; tables for small data
-
-  Specific changes:
-  1. Consolidate odds into bronze/odds/ instead of raw/odds/. One storage tier per data type.
-  2. Create DuckDB views at startup (in db_manager.py) for every Parquet directory — bronze_lineups, bronze_odds,
-  silver_lineups, etc. This makes everything queryable instantly.
-  3. Stop dual-writing — write Parquet first (audit trail), then let DuckDB views read it. Remove direct INSERT INTO for
-  data that's already in Parquet files.
-  4. Rename season_totals/ to something unambiguous like fangraphs_leaderboards/.
-  5. For game-by-game logs (the 9.6MB in game_by_game/): these are fine as yearly files now. During the season when you
-  need fast player lookups, register a DuckDB view across all years with a compound index on (mlbID, game_date).
-
-  What should NOT change
-
-  - The timestamped append-only Parquet pattern is correct and should be kept.
-  - The Hive partitioning on silver lineups is good.
-  - Reference data isolation is good.
-  - The comps_cache.parquet for KNN historical data is fine.
-
-All four deliverables are complete. Here's a summary of everything:
-
-
-
-  ---
-
-  3. README.md — Consolidated
-
-
-
-  I've rewritten README.md from scratch, merging content from the old README and grok_readme.txt into a clean, structured
-
-   document with: project overview, current state (what works), what's next (prioritized), tech stack, data architecture
-
-  diagram, data sources table, projection methodology, and setup/running instructions. The conversational AI-chat
-
-  artifacts ("Your plan is rock-solid!", "Reply with 1, 2, 3, or 4") have been removed.
-
-
-
-  4. CLAUDE.md — Created
-
-
-
-  New CLAUDE.md with: project context, mandatory rules (never delete files, explain before acting, never overwrite data),
-
-   environment setup, running scripts, full architecture walkthrough, key classes, data pipeline overview, and known
-
-  issues section.
-
-
-So I have deleted those recommended files (except for the prompt draft one, I'd like to keep that one).  
-Should it seems like it didnt make any code changes, is that correct?  I also want to differentiate between some base data and time series data
-    for example, the schedules are all one time thingse
-    game by game logs get updatedd every day (in theory)
-    reference files are also one time things currently, but I will want a file that updates them every day as well (that will also be a db)
-
-
-First, tell me if there's any manual work I need to do in terms of moving files/folders around?
-Can you structure a response that instructs him to write a one time script (or terminal commands i could use) that organizes the data?
-    - I really want the data organized well
-    - game by game logs are literally snapshots of a given day for every player by year
-and modifies the db manager if need be?
-    - really want like one file per year for odds, one per year for lineups, one for schedules
+Noticed Issues (Not addressed w AI yet)
+- player logs
+  - tried running for current year (2026) after only a few games
+  - says it's trying to run 184 days still
+  - hasn't finished running, but may need a filter to not fetch games after current date
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  1. What ProjectionEngine currently does (Layer 0) and how good/bad it is                                                                     
+                                                                                                                                               
+  What it does: projections.py:68-103 calculates a single career PA-weighted wOBA per player across all game-by-game logs (2017-2025). It joins
+   each game's counting stats (BB, HBP, 1B, 2B, 3B, HR) with that season's linear weights, sums the weighted numerator, divides by total career
+   PA. Each player gets one number that never changes game-to-game.                                                                          
+                                                                                                                                               
+  How bad this is as a baseline:                                                                                                               
+  
+  - No recency weighting. A guy who hit .340 wOBA from 2017-2022 and then fell off a cliff in 2023-2025 still gets credit for those peak years.
+   Career averages are dragged around by irrelevant seasons.                                                                                 
+  - No aging curve. A 36-year-old with a .350 career wOBA and a 23-year-old rookie with a .290 career wOBA — the model has no idea the old     
+  player is likely declining or the rookie might be improving.                                                                                 
+  - No platoon/park/matchup effects. Every player gets the same projection regardless of who's pitching or where the game is.
+  - Massive fallback rate. You have 2,309 batters in the game logs, but lineups contain bbref_ids that need to map through                     
+  player_id_map.parquet. Any player who fails the crosswalk silently gets league_avg_woba (~0.315). So for some games, multiple lineup spots   
+  are just league average.                                                                                                                     
+  - No pitching input. The Monte Carlo sim only projects runs via batting lineup wOBA. The opposing starter's quality is completely ignored.   
+                                                                                                                                               
+  That said, it's a reasonable Layer 0. Career wOBA is still informative — it separates Juan Soto from a replacement-level hitter. The bigger  
+  issue is that the spread between teams is compressed. When everyone regresses toward their career mean, the model will produce win           
+  probabilities clustered around 45-55%, which means it rarely finds large edges against the market. Markets are already pricing in most of    
+  that career-level information.
+
+  After KNN comps integration, you'd expect:                                                                                                   
+  - Better handling of early-career players (comps fill in what career avg can't)
+  - Recency-sensitive projections (the Kalman blend step weights recent actuals)                                                               
+  - Wider team-level spreads on any given day — and therefore more/larger edge signals
+  - Practically: probably a 3-8% shift in win probability for games where key players are on breakout/decline trajectories that career avg     
+  misses                                                                                                                                       
+                                                                                                                                               
+  2. PlayerComps pandas operations — scope of rewrite                                                                                          
+                                                                                                                                               
+  Looking at player_fingerprinting.py, here are the specific pandas operations:                                                                
+                                                                                                                                               
+  Line(s): 5                                                                                                                                   
+  Operation: import pandas as pd                                                                                                            
+  DuckDB Replacement: Remove entirely                                                                                                          
+  ────────────────────────────────────────                                                                                                  
+  Line(s): 25-29                                                                                                                            
+  Operation: _normalize_columns() — df.copy(), lowercase column names                                                                          
+  DuckDB Replacement: SQL LOWER() or just alias in queries                                                                                     
+  ────────────────────────────────────────                                                                                                     
+  Line(s): 31-48                                                                                                                               
+  Operation: _get_features() — column selection, pd.get_dummies(), .fillna(median)                                                          
+  DuckDB Replacement: DuckDB CASE WHEN for dummies, COALESCE(col, MEDIAN(col) OVER())                                                          
+  ────────────────────────────────────────                                                                                                     
+  Line(s): 50-65                                                                                                                            
+  Operation: build_historical_data() — pybaseball.batting_stats() / pitching_stats() returns DataFrames, pd.concat(), groupby().transform(),   
+    .to_parquet()                                                                                                                           
+  DuckDB Replacement: This is the hardest part. pybaseball returns pandas DataFrames natively. You'd either: (a) keep pybaseball and convert
+    df.to_dict('records') → temp JSON → DuckDB immediately, or (b) skip pybaseball entirely and use the FanGraphs leaderboard parquets you  
+    already have                                                                                                                               
+  ────────────────────────────────────────                                                                                                  
+  Line(s): 67-81                                                                                                                               
+  Operation: fit() — pd.read_parquet(), boolean masking, sklearn fit_transform                                                                 
+  DuckDB Replacement: DuckDB for the data loading + filtering, but sklearn still needs numpy arrays
+  ────────────────────────────────────────                                                                                                     
+  Line(s): 83-96  
+  Operation: get_comps() — pd.DataFrame([player_row]), .iloc[indices], .multiply(), .sum()
+  DuckDB Replacement: Numpy/stdlib after getting arrays from DuckDB
+  ────────────────────────────────────────
+  Line(s): 98-113                                                                                                                              
+  Operation: predict_adjusted_projection() — pd.Series.get()
+  DuckDB Replacement: Plain dict access                                                                                                        
+                  
+  Verdict: Medium-sized rewrite. The biggest decision point is whether to keep pybaseball as the data source for build_historical_data() or    
+  switch to your already-cached FanGraphs leaderboard parquets. Since you already have 46 years of FanGraphs data locally, there's no reason to
+   call pybaseball at all — just read from data/player_logs/fangraphs_leaderboards/. That eliminates the heaviest pandas dependency in one     
+  stroke.         
+
+  The sklearn KNN parts (StandardScaler, NearestNeighbors) need numpy arrays regardless, so the rewrite is really about: (1) replacing pandas  
+  data loading/filtering with DuckDB queries, and (2) replacing DataFrame manipulation in get_comps() with numpy array ops. The actual KNN math
+   stays the same.                                                                                                                             
+                  
+  Estimate: ~150-200 lines of changes, mostly in build_historical_data() and _get_features().                                                  
+  
+  3. FanGraphs leaderboard data coverage                                                                                                       
+                  
+  You have excellent coverage:                                                                                                                 
+                  
+  ┌──────────┬───────────┬────────────────┬────────────────┐                                                                                   
+  │ Dataset  │   Years   │ Player-seasons │ Unique players │
+  ├──────────┼───────────┼────────────────┼────────────────┤                                                                                   
+  │ Batting  │ 1980-2025 │ 49,482         │ 9,505          │
+  ├──────────┼───────────┼────────────────┼────────────────┤
+  │ Pitching │ 1980-2025 │ 27,753         │ 5,899          │
+  └──────────┴───────────┴────────────────┴────────────────┘                                                                                   
+  
+  That's 46 seasons of data. For KNN comps, this is more than enough. The current PlayerComps only uses 2015-2025 via pybaseball — switching to
+   your local data gives you 4x the historical depth.
+                                                                                                                                               
+  All KNN features (wRC+, ISO, K%, BB%, BABIP, Hard%, Barrel%, Spd) are present in the FanGraphs columns. Note: HardHit% in the FG data is     
+  stored as Hard% (older convention) and HardHit% (Statcast era). Barrel% only exists from ~2015+ (Statcast), so for pre-2015 comps those
+  features would be NULL — you'd want to either limit comps to 2015+ or use a reduced feature set for older seasons.                           
+                  
+  4. Full data flow with KNN integrated                                                                                                        
+  
+  Step-by-step from lineup arrival to win probability:                                                                                         
+                  
+  1. Lineup arrives — lineups.py scrapes Rotowire, saves to bronze/silver parquet with bbref_ids per batting order slot                        
+  2. ProjectionEngine.get_player_woba(bbref_id) — for each of the 9 batters in each lineup:
+    - Map bbref_id → mlbID via player_id_map.parquet                                                                                           
+    - Map mlbID → FanGraphs IDfg (need to add this crosswalk)                                                                                  
+    - Layer 1 (KNN): Pull this player's current-season stats from FG leaderboards. Feed age, service_time, PA, wRC+, ISO, K%, BB%, BABIP,      
+  HardHit%, Barrel%, Spd into the fitted KNN model. Get k=15 nearest historical comps. Weighted-average their next-season (or rest-of-season)  
+  stat deltas → KNN projected wOBA                                                                                                             
+    - Layer 2 (Kalman blend): If player has N games this season, blend: woba = (1 - confidence(N)) * knn_projection + confidence(N) *          
+  actual_2026_woba. Confidence grows with PA (e.g., confidence = min(PA / 400, 0.8))                                                           
+    - Return the blended wOBA
+  3. MonteCarloSimulator.project_lineup_runs() — multiply each batter's blended wOBA by their batting-order PA weight, sum, scale by           
+  woba_to_runs constant and home/away multiplier → projected mean runs for that team                                                           
+  4. MonteCarloSimulator.simulate_game() — draw 10,000 samples from Normal(projected_runs, 2.6) for each team, clipped at 0. Count away_wins vs
+   home_wins → win probability                                                                                                                 
+
+  5. EdgeDetector.find_edges() — compare model win_prob to implied probabilities from The Odds API, Kalshi, Polymarket. Flag where |model - 
+  market| > threshold                                                                                                                          
+                  
+  Recommended implementation order                                                                                                             
+                  
+  1. Run the current pipeline first on real games — get a baseline output you can compare against. This costs zero development time and gives  
+  you a concrete "before" snapshot.
+  2. Rewrite PlayerComps to DuckDB — replace pybaseball with your local FG leaderboard parquets, replace all pandas ops with DuckDB queries +  
+  numpy. Medium effort, eliminates the pandas dependency.                                                                                      
+  3. Wire KNN into ProjectionEngine — add get_player_woba() Layer 1 that calls the rewritten PlayerComps. Keep career avg as the fallback when
+  KNN can't find comps.                                                                                                                        
+  4. Add Kalman blending (Layer 2) — this is a small addition once KNN is working. Just a weighted average formula.
+  5. Re-run pipeline, compare to baseline — see if win probability spreads widen and edge detection improves.                                  
+                                                                                                                                               
+  My recommendation: do step 1 right now (run the current pipeline on today's or yesterday's games), then proceed with the PlayerComps rewrite.
+   The rewrite is worth doing — it's not huge, your local data is excellent, and it eliminates the broken-pandas problem. But having a baseline
+   first means you can measure the improvement.                                                                                                
+                  
+
+
+# for later:
+The MLB season has started. Priority is getting mlb_scraper_bot.py 
+running 24/7 on Railway (~$5/month). Please set up the deployment.
+
+Read CLAUDE.md and the current project structure first, then:
+
+1. Create a Procfile in the repo root:
+   worker: python src/scripts/mlb_scraper_bot.py
+
+2. Create a railway.toml in the repo root configured for a 
+   background worker (not a web server)
+
+3. Create a requirements.txt (or verify it exists) with all 
+   dependencies the scraper needs
+
+4. Create a .env.example file listing all environment variables 
+   needed (API keys etc) without actual values — just the names 
+   so I know what to set in Railway's dashboard
+
+5. Check if there are any hardcoded file paths in the scraper 
+   or fetchers that assume /Users/patrickmaloney/ — these will 
+   break on a cloud server and need to use relative paths or 
+   environment variables instead
+
+6. Note any other issues that could cause the scraper to fail 
+   in a cloud environment (file permissions, data directory 
+   creation, etc.)
+
+Do NOT touch the actual scraper logic — deployment config only.
+Show me everything before creating files and wait for approval.
+
+
+Railway deployment failed. Here is the build log:
+
+full logs below:
+2026-03-26T19:50:49.499113928Z [inf]  
+2026-03-26T19:50:50.359935066Z [inf]  [35m[Region: us-west1][0m
+2026-03-26T19:50:50.368566570Z [inf]  [35m==============
+2026-03-26T19:50:50.368614646Z [inf]  Using Nixpacks
+2026-03-26T19:50:50.368620934Z [inf]  ==============
+2026-03-26T19:50:50.368625099Z [inf]  [0m
+2026-03-26T19:50:50.368697087Z [inf]  context: 9m4j-vKfm
+2026-03-26T19:50:50.456492570Z [inf]  ╔══════════════════════════════ Nixpacks v1.38.0 ══════════════════════════════╗
+2026-03-26T19:50:50.456543923Z [inf]  ║ setup      │ python3, gcc                                                    ║
+2026-03-26T19:50:50.456553016Z [inf]  ║──────────────────────────────────────────────────────────────────────────────║
+2026-03-26T19:50:50.456559616Z [inf]  ║ install    │ python -m venv --copies /opt/venv && . /opt/venv/bin/activate   ║
+2026-03-26T19:50:50.456566383Z [inf]  ║            │ && pip install -r requirements.txt                              ║
+2026-03-26T19:50:50.456571663Z [inf]  ║──────────────────────────────────────────────────────────────────────────────║
+2026-03-26T19:50:50.456577690Z [inf]  ║ start      │ python src/scripts/mlb_scraper_bot.py                           ║
+2026-03-26T19:50:50.456583171Z [inf]  ╚══════════════════════════════════════════════════════════════════════════════╝
+2026-03-26T19:50:50.700025964Z [inf]  [internal] load build definition from Dockerfile
+2026-03-26T19:50:50.700075758Z [inf]  [internal] load build definition from Dockerfile
+2026-03-26T19:50:50.700091740Z [inf]  [internal] load build definition from Dockerfile
+2026-03-26T19:50:50.700107336Z [inf]  [internal] load build definition from Dockerfile
+2026-03-26T19:50:50.750534927Z [inf]  [internal] load build definition from Dockerfile
+2026-03-26T19:50:50.758999073Z [inf]  [internal] load metadata for ghcr.io/railwayapp/nixpacks:ubuntu-1745885067
+2026-03-26T19:50:51.029330400Z [inf]  [internal] load metadata for ghcr.io/railwayapp/nixpacks:ubuntu-1745885067
+2026-03-26T19:50:51.029468650Z [inf]  [internal] load .dockerignore
+2026-03-26T19:50:51.029490740Z [inf]  [internal] load .dockerignore
+2026-03-26T19:50:51.029544883Z [inf]  [internal] load .dockerignore
+2026-03-26T19:50:51.087412644Z [inf]  [internal] load .dockerignore
+2026-03-26T19:50:51.102417887Z [inf]  [stage-0 8/8] COPY . /app
+2026-03-26T19:50:51.102512905Z [inf]  [stage-0 7/8] RUN printf '\nPATH=/opt/venv/bin:$PATH' >> /root/.profile
+2026-03-26T19:50:51.102540579Z [inf]  [stage-0 6/8] RUN --mount=type=cache,id=s/1643656f-c9e0-4169-838c-9769844ca545-/root/cache/pip,target=/root/.cache/pip python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt
+2026-03-26T19:50:51.102551703Z [inf]  [stage-0 5/8] COPY . /app/.
+2026-03-26T19:50:51.102567444Z [inf]  [stage-0 4/8] RUN nix-env -if .nixpacks/nixpkgs-bc8f8d1be58e8c8383e683a06e1e1e57893fff87.nix && nix-collect-garbage -d
+2026-03-26T19:50:51.102578529Z [inf]  [stage-0 3/8] COPY .nixpacks/nixpkgs-bc8f8d1be58e8c8383e683a06e1e1e57893fff87.nix .nixpacks/nixpkgs-bc8f8d1be58e8c8383e683a06e1e1e57893fff87.nix
+2026-03-26T19:50:51.102588159Z [inf]  [internal] load build context
+2026-03-26T19:50:51.102597569Z [inf]  [stage-0 2/8] WORKDIR /app/
+2026-03-26T19:50:51.102619628Z [inf]  [stage-0 1/8] FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+2026-03-26T19:50:51.102644357Z [inf]  [stage-0 1/8] FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+2026-03-26T19:50:51.102662145Z [inf]  [internal] load build context
+2026-03-26T19:50:51.102845539Z [inf]  [internal] load build context
+2026-03-26T19:50:51.112539046Z [inf]  [stage-0 1/8] FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+2026-03-26T19:50:51.249973336Z [inf]  [internal] load build context
+2026-03-26T19:50:51.267044004Z [inf]  [stage-0 2/8] WORKDIR /app/
+2026-03-26T19:50:51.267105282Z [inf]  [stage-0 3/8] COPY .nixpacks/nixpkgs-bc8f8d1be58e8c8383e683a06e1e1e57893fff87.nix .nixpacks/nixpkgs-bc8f8d1be58e8c8383e683a06e1e1e57893fff87.nix
+2026-03-26T19:50:51.267120266Z [inf]  [stage-0 4/8] RUN nix-env -if .nixpacks/nixpkgs-bc8f8d1be58e8c8383e683a06e1e1e57893fff87.nix && nix-collect-garbage -d
+2026-03-26T19:50:51.267130617Z [inf]  [stage-0 5/8] COPY . /app/.
+2026-03-26T19:50:51.462234528Z [inf]  [stage-0 5/8] COPY . /app/.
+2026-03-26T19:50:51.470746927Z [inf]  [stage-0 6/8] RUN --mount=type=cache,id=s/1643656f-c9e0-4169-838c-9769844ca545-/root/cache/pip,target=/root/.cache/pip python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt
+2026-03-26T19:50:54.381061683Z [inf]  Collecting APScheduler>=3.10.0 (from -r requirements.txt (line 1))
+
+2026-03-26T19:50:54.417716557Z [inf]    Downloading apscheduler-3.11.2-py3-none-any.whl.metadata (6.4 kB)
+
+2026-03-26T19:50:54.445682744Z [inf]  Collecting beautifulsoup4>=4.12.3 (from -r requirements.txt (line 2))
+
+2026-03-26T19:50:54.454984046Z [inf]    Downloading beautifulsoup4-4.14.3-py3-none-any.whl.metadata (3.8 kB)
+
+2026-03-26T19:50:54.829120956Z [inf]  Collecting duckdb>=1.0.0 (from -r requirements.txt (line 3))
+
+2026-03-26T19:50:54.839432228Z [inf]    Downloading duckdb-1.5.1-cp312-cp312-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl.metadata (4.2 kB)
+
+2026-03-26T19:50:54.855393329Z [inf]  ERROR: Ignored the following versions that require a different python version: 3.0.0 Requires-Python >=3.13; 3.1.0 Requires-Python >=3.13; 3.10.0 Requires-Python >=3.13; 3.2.1 Requires-Python >=3.13; 3.3.0 Requires-Python >=3.13; 3.4.0 Requires-Python >=3.13; 3.5.0 Requires-Python >=3.13; 3.6.0 Requires-Python >=3.13; 3.7.0 Requires-Python >=3.13; 3.8.0 Requires-Python >=3.13; 3.9.0 Requires-Python >=3.13
+
+2026-03-26T19:50:54.855636515Z [inf]  ERROR: Could not find a version that satisfies the requirement kalshi_python_async>=3.9.0 (from versions: 3.2.0)
+
+2026-03-26T19:50:54.85591885Z [inf]  ERROR: No matching distribution found for kalshi_python_async>=3.9.0
+
+2026-03-26T19:50:54.961814481Z [err]  [stage-0 6/8] RUN --mount=type=cache,id=s/1643656f-c9e0-4169-838c-9769844ca545-/root/cache/pip,target=/root/.cache/pip python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt
+2026-03-26T19:50:54.977266962Z [err]  Dockerfile:20
+2026-03-26T19:50:54.977309714Z [err]  -------------------
+2026-03-26T19:50:54.977316997Z [err]  18 |     ENV NIXPACKS_PATH=/opt/venv/bin:$NIXPACKS_PATH
+2026-03-26T19:50:54.977323844Z [err]  19 |     COPY . /app/.
+2026-03-26T19:50:54.977331811Z [err]  20 | >>> RUN --mount=type=cache,id=s/1643656f-c9e0-4169-838c-9769844ca545-/root/cache/pip,target=/root/.cache/pip python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt
+2026-03-26T19:50:54.977336800Z [err]  21 |
+2026-03-26T19:50:54.977341886Z [err]  22 |
+2026-03-26T19:50:54.977347339Z [err]  -------------------
+2026-03-26T19:50:54.977352331Z [err]  ERROR: failed to build: failed to solve: process "/bin/bash -ol pipefail -c python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt" did not complete successfully: exit code: 1
+2026-03-26T19:50:54.983929320Z [err]  Error: Docker build failed
+
+
+Context on how Railway is configured:
+- New project connected to GitHub repo
+- Worker service (not web server)
+- Volume mounted at /app/data
+- Environment variables set: ODDS_API_KEY, [list whatever you added]
+- Python 3.12 via nixpacks as specified in railway.toml
+
+Please diagnose the failure and fix it. Check:
+1. requirements.txt — any missing or incompatible packages?
+2. railway.toml — any configuration issues?
+3. Procfile — correct start command?
+4. Any import errors that would only show up in a clean environment?
+
+Show me what you're changing and why before making fixes.

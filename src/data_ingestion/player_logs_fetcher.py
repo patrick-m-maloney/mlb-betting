@@ -26,8 +26,8 @@ def fetch_game_logs(year: int = 2023):
     print(f"📥 Starting / resuming daily BR logs fetch for {year}...")
 
     # Smart path: tries flat first, then old subfolder
-    flat_path = f"data/raw/schedules/games_{year}.parquet"
-    sub_path  = f"data/raw/schedules/{year}/games_{year}.parquet"
+    flat_path = f"data/schedules/games_{year}.parquet"
+    sub_path  = f"data/raw/schedules/games_{year}.parquet"
     
     if os.path.exists(flat_path):
         schedule_path = flat_path
@@ -122,4 +122,6 @@ def fetch_game_logs(year: int = 2023):
     print("   (Progress saved every 10 days — you can safely stop/restart anytime)")
 
 if __name__ == "__main__":
-    fetch_game_logs(2017)   # ← CHANGE THIS NUMBER ONLY
+    fetch_game_logs(2026)   # ← CHANGE THIS NUMBER ONLY
+
+# data/schedules/games_2026.parquet
